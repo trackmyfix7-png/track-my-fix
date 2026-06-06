@@ -1,0 +1,66 @@
+import { useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { useAuthContext } from '@/contexts/AuthContext'
+
+export function AuthCallbackPage() {
+  const navigate = useNavigate()
+  const { user, isLoading, role } = useAuthContext()
+  const handled = useRef(false)
+
+  // Troca o code pelo session (PKCE flow do Supabase)
+  useEffect(() => {
+    const hash = window.location.hash
+    const params = new URLSearchParams(window.location.search)
+
+    // Supabase retorna o token no hash (#access_token=...) ou no search (?code=...)
+    if (hash.includes('access_token') || params.get('code')) {
+      supabase.auth.getSession() // força o Supabase a processar o callback
+    }
+  }, [])
+
+  // Quando AuthContext resolver o user (via onAuthStateChange SIGNED_IN), redireciona
+  useEffect(() => {
+    if (handled.current || isLoading) return
+
+    if (user) {
+      handled.current = true
+
+      // Fluxo de cadastro de nova oficina
+      const pendingRegistration = sessionStorage.getItem('pendingAdminRegistration')
+      if (pendingRegistration === 'true') {
+        sessionStorage.removeItem('pendingAdminRegistration')
+        navigate('/admin/onboarding', { replace: true })
+        return
+      }
+
+      if (role === 'admin') {
+        navigate('/admin/dashboard', { replace: true })
+      } else {
+        // Verifica se tem ao menos um vínculo com oficina
+        supabase
+          .from('client_workshops')
+          .select('id')
+          .eq('client_id', user.id)
+          .limit(1)
+          .then(({ data }) => {
+            if (data && data.length > 0) {
+              navigate('/dashboard', { replace: true })
+            } else {
+              navigate('/sem-acesso', { replace: true })
+            }
+          })
+      }
+    } else if (!isLoading) {
+      navigate('/login', { replace: true })
+    }
+  }, [user, isLoading, role, navigate])
+
+  return (
+    <div className="min-h-screen bg-brand-primary flex flex-col items-center justify-center gap-4">
+      <Loader2 className="h-8 w-8 animate-spin text-white/60" />
+      <p className="text-sm text-white/50">Verificando acesso...</p>
+    </div>
+  )
+}
