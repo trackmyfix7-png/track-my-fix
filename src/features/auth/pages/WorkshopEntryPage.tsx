@@ -32,7 +32,7 @@ export function WorkshopEntryPage() {
 
     supabase
       .from('workshops')
-      .select('id, name, slug, owner_id, created_at')
+      .select('id, name, slug, owner_id, created_at, address, phone, cnpj')
       .eq('slug', slug)
       .single()
       .then(({ data, error }) => {
