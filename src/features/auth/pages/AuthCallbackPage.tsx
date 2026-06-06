@@ -38,19 +38,40 @@ export function AuthCallbackPage() {
       if (role === 'admin') {
         navigate('/admin/dashboard', { replace: true })
       } else {
-        // Verifica se tem ao menos um vínculo com oficina
-        supabase
-          .from('client_workshops')
-          .select('id')
-          .eq('client_id', user.id)
-          .limit(1)
-          .then(({ data }) => {
-            if (data && data.length > 0) {
-              navigate('/dashboard', { replace: true })
-            } else {
-              navigate('/sem-acesso', { replace: true })
-            }
-          })
+        const pendingSlug = sessionStorage.getItem('pendingWorkshopSlug')
+
+        if (pendingSlug) {
+          sessionStorage.removeItem('pendingWorkshopSlug')
+
+          supabase
+            .from('workshops')
+            .select('id')
+            .eq('slug', pendingSlug)
+            .single()
+            .then(({ data: workshop }) => {
+              if (!workshop) {
+                navigate('/sem-acesso', { replace: true })
+                return
+              }
+              supabase
+                .from('client_workshops')
+                .upsert({ client_id: user.id, workshop_id: workshop.id }, { onConflict: 'client_id,workshop_id' })
+                .then(() => navigate('/dashboard', { replace: true }))
+            })
+        } else {
+          supabase
+            .from('client_workshops')
+            .select('id')
+            .eq('client_id', user.id)
+            .limit(1)
+            .then(({ data }) => {
+              if (data && data.length > 0) {
+                navigate('/dashboard', { replace: true })
+              } else {
+                navigate('/sem-acesso', { replace: true })
+              }
+            })
+        }
       }
     } else if (!isLoading) {
       navigate('/login', { replace: true })
