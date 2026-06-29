@@ -569,6 +569,19 @@ export function AdminFuncionariosPage() {
       <PageHeader
         title="Funcionários"
         description="Cadastro de equipe e treinamentos"
+        actions={
+          activeTab === 'equipe' ? (
+            <Button
+              variant="accent"
+              size="sm"
+              className="gap-2"
+              onClick={() => { setEditTarget(null); setFormOpen(true) }}
+            >
+              <UserPlus className="h-4 w-4" />
+              Adicionar funcionário
+            </Button>
+          ) : undefined
+        }
       />
 
       {/* Tabs */}
@@ -595,18 +608,6 @@ export function AdminFuncionariosPage() {
       {/* Aba: Equipe e treinamentos */}
       {activeTab === 'equipe' && (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button
-              variant="accent"
-              size="sm"
-              className="gap-2"
-              onClick={() => { setEditTarget(null); setFormOpen(true) }}
-            >
-              <UserPlus className="h-4 w-4" />
-              Adicionar funcionário
-            </Button>
-          </div>
-
           <Card>
             <CardContent className="p-0">
               {employees.length === 0 ? (

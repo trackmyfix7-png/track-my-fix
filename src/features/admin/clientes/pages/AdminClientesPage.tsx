@@ -303,9 +303,20 @@ export function AdminClientesPage() {
       <PageHeader
         title="Gestão de clientes"
         description={`${clients.length} cliente${clients.length !== 1 ? 's' : ''} com acesso ao portal`}
+        actions={
+          <Button
+            variant="accent"
+            size="sm"
+            className="gap-2"
+            onClick={() => { setEditTarget(null); setFormOpen(true) }}
+          >
+            <UserPlus className="h-4 w-4" />
+            Adicionar cliente
+          </Button>
+        }
       />
 
-      {/* Summary + ação */}
+      {/* Pills de resumo */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 rounded-full border border-border bg-white px-4 py-1.5">
           <span className="text-xs text-muted-foreground">Com acesso</span>
@@ -317,17 +328,6 @@ export function AdminClientesPage() {
             <span className="text-sm font-bold text-amber-700">{preClients.length}</span>
           </div>
         )}
-        <div className="ml-auto">
-          <Button
-            variant="accent"
-            size="sm"
-            className="gap-2"
-            onClick={() => { setEditTarget(null); setFormOpen(true) }}
-          >
-            <UserPlus className="h-4 w-4" />
-            Adicionar cliente
-          </Button>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
