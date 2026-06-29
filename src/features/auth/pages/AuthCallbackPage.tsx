@@ -37,42 +37,66 @@ export function AuthCallbackPage() {
 
       if (role === 'admin') {
         navigate('/admin/dashboard', { replace: true })
-      } else {
-        const pendingSlug = sessionStorage.getItem('pendingWorkshopSlug')
-
-        if (pendingSlug) {
-          sessionStorage.removeItem('pendingWorkshopSlug')
-
-          supabase
-            .from('workshops')
-            .select('id')
-            .eq('slug', pendingSlug)
-            .single()
-            .then(({ data: workshop }) => {
-              if (!workshop) {
-                navigate('/sem-acesso', { replace: true })
-                return
-              }
-              supabase
-                .from('client_workshops')
-                .upsert({ client_id: user.id, workshop_id: workshop.id }, { onConflict: 'client_id,workshop_id' })
-                .then(() => navigate('/dashboard', { replace: true }))
-            })
-        } else {
-          supabase
-            .from('client_workshops')
-            .select('id')
-            .eq('client_id', user.id)
-            .limit(1)
-            .then(({ data }) => {
-              if (data && data.length > 0) {
-                navigate('/dashboard', { replace: true })
-              } else {
-                navigate('/sem-acesso', { replace: true })
-              }
-            })
-        }
+        return
       }
+
+      if (role === 'employee') {
+        navigate('/funcionario/ordens', { replace: true })
+        return
+      }
+
+      // Convite de funcionário via link
+      const pendingEmployeeSlug = sessionStorage.getItem('pendingEmployeeSlug')
+      if (pendingEmployeeSlug) {
+        sessionStorage.removeItem('pendingEmployeeSlug')
+        supabase
+          .rpc('join_as_employee', { p_workshop_slug: pendingEmployeeSlug })
+          .then(() => {
+            // Hard navigation para recarregar o contexto com role=employee
+            window.location.replace('/funcionario/ordens')
+          })
+        return
+      }
+
+      // Convite de cliente via link
+      const pendingSlug = sessionStorage.getItem('pendingWorkshopSlug')
+      if (pendingSlug) {
+        sessionStorage.removeItem('pendingWorkshopSlug')
+        supabase
+          .from('workshops')
+          .select('id')
+          .eq('slug', pendingSlug)
+          .single()
+          .then(({ data: workshop }) => {
+            if (!workshop) {
+              navigate('/sem-acesso', { replace: true })
+              return
+            }
+            supabase
+              .from('client_workshops')
+              .upsert({ client_id: user.id, workshop_id: workshop.id }, { onConflict: 'client_id,workshop_id' })
+              .then(() => {
+                // Tenta vincular pré-cadastro pelo e-mail (ignora erro se não existir)
+                supabase.rpc('link_pre_registered_client', { p_workshop_slug: pendingSlug }).then()
+                navigate('/dashboard', { replace: true })
+              })
+          })
+        return
+      }
+
+      // Usuário existente sem convite pendente — verifica vínculo
+      supabase
+        .from('client_workshops')
+        .select('id')
+        .eq('client_id', user.id)
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            navigate('/dashboard', { replace: true })
+          } else {
+            navigate('/sem-acesso', { replace: true })
+          }
+        })
     } else if (!isLoading) {
       navigate('/login', { replace: true })
     }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, ClipboardList } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -9,45 +9,28 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { LoadingState } from '@/components/shared/LoadingState'
 import { cn, getInitials } from '@/lib/utils'
+import { useWorkshopClients, useRegisterVehicle } from '../hooks/useAdminVehicles'
+import type { WorkshopClient } from '../services/admin-vehicles.service'
 
-// ─── Checklist items ──────────────────────────────────────────────────────────
+// ─── Checklist default ────────────────────────────────────────────────────────
 
-const checklistItems = [
-  { id: 'lataria',   label: 'Lataria sem amassados'   },
-  { id: 'vidros',    label: 'Vidros íntegros'          },
-  { id: 'farois',    label: 'Faróis e lanternas OK'    },
-  { id: 'pneus',     label: 'Pneus sem danos'          },
-  { id: 'interior',  label: 'Interior sem avarias'     },
-  { id: 'km',        label: 'Km registrado e conferido'},
+const DEFAULT_CHECKLIST = [
+  { id: 'lataria',  label: 'Lataria sem amassados'    },
+  { id: 'vidros',   label: 'Vidros íntegros'           },
+  { id: 'farois',   label: 'Faróis e lanternas OK'     },
+  { id: 'pneus',    label: 'Pneus sem danos'           },
+  { id: 'interior', label: 'Interior sem avarias'      },
+  { id: 'km',       label: 'Km registrado e conferido' },
 ]
 
-// ─── Mock clients (para busca) ─────────────────────────────────────────────────
+const FUEL_OPTIONS = ['Flex', 'Gasolina', 'Etanol', 'Diesel', 'GNV', 'Elétrico', 'Híbrido']
 
-const mockClients = [
-  { id: '1', name: 'Carlos Ribeiro',  email: 'carlos@email.com'  },
-  { id: '2', name: 'Ana Paula',       email: 'ana@email.com'     },
-  { id: '3', name: 'Maria Silva',     email: 'maria@email.com'   },
-  { id: '4', name: 'Roberto Mendes',  email: 'roberto@email.com' },
-  { id: '5', name: 'Felipe Lima',     email: 'felipe@email.com'  },
-  { id: '6', name: 'Pedro Lima',      email: 'pedro@email.com'   },
-  { id: '7', name: 'João Ferreira',   email: 'joao@email.com'    },
-]
+// ─── CheckItem ────────────────────────────────────────────────────────────────
 
-const fuelOptions = ['Flex', 'Gasolina', 'Etanol', 'Diesel', 'GNV', 'Elétrico', 'Híbrido']
-
-// ─── Checklist item ────────────────────────────────────────────────────────────
-
-function CheckItem({
-  id,
-  label,
-  checked,
-  onChange,
-}: {
-  id: string
-  label: string
-  checked: boolean
-  onChange: (id: string, v: boolean) => void
+function CheckItem({ id, label, checked, onChange }: {
+  id: string; label: string; checked: boolean; onChange: (id: string, v: boolean) => void
 }) {
   return (
     <label
@@ -62,9 +45,7 @@ function CheckItem({
         onClick={() => onChange(id, !checked)}
         className={cn(
           'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-colors',
-          checked
-            ? 'border-brand-secondary bg-brand-secondary'
-            : 'border-border bg-white'
+          checked ? 'border-brand-secondary bg-brand-secondary' : 'border-border bg-white'
         )}
       >
         {checked && <Check className="h-3 w-3 text-white stroke-[3]" />}
@@ -78,50 +59,70 @@ function CheckItem({
 
 export function AdminVeiculoNovoPage() {
   const navigate = useNavigate()
+  const { data: allClients = [], isLoading: loadingClients } = useWorkshopClients()
+  const registerVehicle = useRegisterVehicle()
 
-  // Form state
-  const [plate,       setPlate]       = useState('')
-  const [km,          setKm]          = useState('')
-  const [brand,       setBrand]       = useState('')
-  const [model,       setModel]       = useState('')
-  const [year,        setYear]        = useState('')
-  const [color,       setColor]       = useState('')
-  const [fuel,        setFuel]        = useState('')
-  const [problem,     setProblem]     = useState('')
-  const [observations,setObservations] = useState('')
+  // Form
+  const [plate,        setPlate]        = useState('')
+  const [km,           setKm]           = useState('')
+  const [brand,        setBrand]        = useState('')
+  const [model,        setModel]        = useState('')
+  const [year,         setYear]         = useState('')
+  const [color,        setColor]        = useState('')
+  const [fuel,         setFuel]         = useState('')
+  const [problem,      setProblem]      = useState('')
+  const [observations, setObservations] = useState('')
 
-  // Checklist state
+  // Checklist
   const [checked, setChecked] = useState<Record<string, boolean>>({})
 
   // Client search
   const [clientSearch,   setClientSearch]   = useState('')
-  const [selectedClient, setSelectedClient] = useState<typeof mockClients[number] | null>(null)
+  const [selectedClient, setSelectedClient] = useState<WorkshopClient | null>(null)
 
-  const clientResults =
-    clientSearch.length >= 2
-      ? mockClients.filter(
-          (c) =>
-            c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-            c.email.toLowerCase().includes(clientSearch.toLowerCase())
-        )
-      : []
+  const clientResults = useMemo(() => {
+    if (clientSearch.length < 2 || selectedClient) return []
+    const q = clientSearch.toLowerCase()
+    return allClients.filter((c) => c.full_name.toLowerCase().includes(q))
+  }, [clientSearch, allClients, selectedClient])
 
   function toggleCheck(id: string, value: boolean) {
     setChecked((prev) => ({ ...prev, [id]: value }))
   }
 
-  function handleSelectClient(client: typeof mockClients[number]) {
-    setSelectedClient(client)
-    setClientSearch('')
-  }
-
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    // Backend integration comes next
-    navigate('/admin/veiculos')
+    if (!selectedClient) return
+
+    const checklist = DEFAULT_CHECKLIST.map((item) => ({
+      item:  item.label,
+      isOk:  checked[item.id] ?? false,
+    }))
+
+    try {
+      const orderId = await registerVehicle.mutateAsync({
+        clientId:           selectedClient.id,
+        brand,
+        model,
+        year:               parseInt(year),
+        plate,
+        color:              color || undefined,
+        fuelType:           fuel  || undefined,
+        mileage:            km    ? parseInt(km) : undefined,
+        problemDescription: problem || undefined,
+        checklist,
+        checklistNotes:     observations || undefined,
+      })
+      navigate(`/admin/veiculos/${orderId}`)
+    } catch (err) {
+      console.error('[AdminVeiculoNovo] Erro ao cadastrar:', err)
+    }
   }
 
   const checkedCount = Object.values(checked).filter(Boolean).length
+  const canSubmit = !!plate && !!brand && !!model && !!year && !!selectedClient && !registerVehicle.isPending
+
+  if (loadingClients) return <LoadingState />
 
   return (
     <div className="space-y-6">
@@ -138,93 +139,69 @@ export function AdminVeiculoNovoPage() {
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
 
-          {/* ── Dados do veículo (3/5) ─────────────────────────────── */}
+          {/* Dados do veículo */}
           <Card className="lg:col-span-3">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Dados do veículo</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Placa + KM */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Placa</Label>
+                  <Label>Placa *</Label>
                   <Input
                     placeholder="ABC-1234"
                     value={plate}
                     onChange={(e) => setPlate(e.target.value.toUpperCase())}
                     className="font-mono uppercase"
+                    required
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Km atual</Label>
                   <Input
                     type="number"
-                    placeholder="72.400"
+                    placeholder="72400"
                     value={km}
                     onChange={(e) => setKm(e.target.value)}
                   />
                 </div>
               </div>
 
-              {/* Marca + Modelo */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Marca</Label>
-                  <Input
-                    placeholder="Honda"
-                    value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
-                  />
+                  <Label>Marca *</Label>
+                  <Input placeholder="Honda" value={brand} onChange={(e) => setBrand(e.target.value)} required />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Modelo</Label>
-                  <Input
-                    placeholder="Civic"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                  />
+                  <Label>Modelo *</Label>
+                  <Input placeholder="Civic" value={model} onChange={(e) => setModel(e.target.value)} required />
                 </div>
               </div>
 
-              {/* Ano + Cor + Combustível */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Ano</Label>
-                  <Input
-                    type="number"
-                    placeholder="2021"
-                    value={year}
-                    onChange={(e) => setYear(e.target.value)}
-                  />
+                  <Label>Ano *</Label>
+                  <Input type="number" placeholder="2021" value={year} onChange={(e) => setYear(e.target.value)} required />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Cor</Label>
-                  <Input
-                    placeholder="Prata"
-                    value={color}
-                    onChange={(e) => setColor(e.target.value)}
-                  />
+                  <Input placeholder="Prata" value={color} onChange={(e) => setColor(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Combustível</Label>
                   <Select value={fuel} onValueChange={setFuel}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tipo" />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
                     <SelectContent>
-                      {fuelOptions.map((f) => (
-                        <SelectItem key={f} value={f}>{f}</SelectItem>
-                      ))}
+                      {FUEL_OPTIONS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              {/* Problema */}
               <div className="space-y-1.5">
                 <Label>Problema relatado pelo cliente</Label>
                 <Textarea
-                  placeholder="Descreva o problema relatado pelo cliente..."
+                  placeholder="Descreva o problema..."
                   rows={3}
                   value={problem}
                   onChange={(e) => setProblem(e.target.value)}
@@ -233,7 +210,7 @@ export function AdminVeiculoNovoPage() {
             </CardContent>
           </Card>
 
-          {/* ── Check-list de entrada (2/5) ──────────────────────────── */}
+          {/* Check-list */}
           <Card className="lg:col-span-2">
             <CardHeader className="pb-1">
               <div className="flex items-center justify-between">
@@ -242,13 +219,12 @@ export function AdminVeiculoNovoPage() {
                   Check-list de entrada
                 </CardTitle>
                 <span className="text-xs text-muted-foreground">
-                  {checkedCount}/{checklistItems.length} verificados
+                  {checkedCount}/{DEFAULT_CHECKLIST.length} verificados
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">Marque os itens verificados</p>
             </CardHeader>
             <CardContent className="space-y-1 pt-2">
-              {checklistItems.map((item) => (
+              {DEFAULT_CHECKLIST.map((item) => (
                 <CheckItem
                   key={item.id}
                   id={item.id}
@@ -257,11 +233,10 @@ export function AdminVeiculoNovoPage() {
                   onChange={toggleCheck}
                 />
               ))}
-
               <div className="pt-3 space-y-1.5">
                 <Label>Observações gerais</Label>
                 <Textarea
-                  placeholder="Anotações sobre o estado do veículo na entrada..."
+                  placeholder="Anotações sobre o estado do veículo..."
                   rows={3}
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
@@ -271,62 +246,60 @@ export function AdminVeiculoNovoPage() {
           </Card>
         </div>
 
-        {/* ── Cliente vinculado ───────────────────────────────────────── */}
+        {/* Cliente vinculado */}
         <Card className="mt-6">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Cliente vinculado</CardTitle>
+            <CardTitle className="text-base">Cliente vinculado *</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="max-w-sm space-y-2 relative">
               <Input
-                placeholder="Buscar cliente por nome ou e-mail"
-                value={selectedClient ? selectedClient.name : clientSearch}
+                placeholder="Buscar cliente por nome..."
+                value={selectedClient ? selectedClient.full_name : clientSearch}
                 onChange={(e) => {
                   setSelectedClient(null)
                   setClientSearch(e.target.value)
                 }}
               />
 
-              {/* Search results dropdown */}
-              {clientResults.length > 0 && !selectedClient && (
+              {clientResults.length > 0 && (
                 <div className="absolute top-full left-0 z-10 w-full rounded-md border border-border bg-white shadow-md">
                   {clientResults.map((c) => (
                     <button
                       key={c.id}
                       type="button"
-                      onClick={() => handleSelectClient(c)}
+                      onClick={() => { setSelectedClient(c); setClientSearch('') }}
                       className="flex w-full items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors text-left"
                     >
                       <Avatar className="h-7 w-7 flex-shrink-0">
                         <AvatarFallback className="bg-brand-primary/10 text-brand-primary text-xs">
-                          {getInitials(c.name)}
+                          {getInitials(c.full_name)}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="text-sm font-medium">{c.name}</p>
-                        <p className="text-xs text-muted-foreground">{c.email}</p>
-                      </div>
+                      <p className="text-sm font-medium">{c.full_name}</p>
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* Selected client chip */}
+              {allClients.length === 0 && !loadingClients && (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum cliente vinculado a esta oficina ainda.
+                </p>
+              )}
+
               {selectedClient && (
                 <div className="flex items-center gap-3 rounded-lg border border-brand-secondary/30 bg-brand-secondary/5 px-3 py-2">
                   <Avatar className="h-8 w-8 flex-shrink-0">
                     <AvatarFallback className="bg-brand-secondary/20 text-brand-secondary text-xs font-semibold">
-                      {getInitials(selectedClient.name)}
+                      {getInitials(selectedClient.full_name)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{selectedClient.name}</p>
-                    <p className="text-xs text-muted-foreground">{selectedClient.email}</p>
-                  </div>
+                  <p className="flex-1 text-sm font-semibold">{selectedClient.full_name}</p>
                   <button
                     type="button"
                     onClick={() => setSelectedClient(null)}
-                    className="text-muted-foreground hover:text-foreground text-xs"
+                    className="text-xs text-muted-foreground hover:text-foreground"
                   >
                     Trocar
                   </button>
@@ -336,10 +309,15 @@ export function AdminVeiculoNovoPage() {
           </CardContent>
         </Card>
 
-        {/* ── Actions ────────────────────────────────────────────────── */}
+        {registerVehicle.isError && (
+          <p className="mt-4 text-sm text-destructive">
+            Erro ao cadastrar veículo. Verifique os dados e tente novamente.
+          </p>
+        )}
+
         <div className="mt-6 flex items-center gap-3">
-          <Button type="submit" variant="accent" disabled={!plate || !brand || !model}>
-            Cadastrar veículo
+          <Button type="submit" variant="accent" disabled={!canSubmit}>
+            {registerVehicle.isPending ? 'Cadastrando...' : 'Cadastrar veículo'}
           </Button>
           <Button type="button" variant="outline" onClick={() => navigate('/admin/veiculos')}>
             Cancelar

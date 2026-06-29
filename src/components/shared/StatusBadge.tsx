@@ -16,10 +16,16 @@ const invoiceStatusMap: Record<InvoiceStatus, { label: string; variant: 'accent'
 }
 
 const serviceOrderStatusMap: Record<ServiceOrderStatus, { label: string; variant: 'muted' | 'secondary' | 'accent' | 'success' }> = {
-  received: { label: 'Recebido', variant: 'muted' },
-  in_progress: { label: 'Em processo', variant: 'secondary' },
-  ready: { label: 'Pronto', variant: 'accent' },
-  delivered: { label: 'Entregue', variant: 'success' },
+  received:          { label: 'Recebido',            variant: 'muted'      },
+  diagnosis:         { label: 'Diagnóstico',          variant: 'secondary'  },
+  awaiting_approval: { label: 'Aguard. aprovação',   variant: 'accent'     },
+  in_progress:       { label: 'Em processo',          variant: 'secondary'  },
+  ready:             { label: 'Pronto',               variant: 'accent'     },
+  delivered:         { label: 'Entregue',             variant: 'success'    },
+}
+
+export function StatusBadge({ status, className }: { status: ServiceOrderStatus; className?: string }) {
+  return <ServiceOrderStatusBadge status={status} className={className} />
 }
 
 const serviceRequestStatusMap: Record<ServiceRequestStatus, { label: string; variant: 'muted' | 'secondary' | 'success' }> = {

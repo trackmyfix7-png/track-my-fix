@@ -5,6 +5,7 @@ import { LoadingState } from '@/components/shared/LoadingState'
 
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { WorkshopEntryPage } from '@/features/auth/pages/WorkshopEntryPage'
+import { EmployeeInvitePage } from '@/features/auth/pages/EmployeeInvitePage'
 import { WorkshopRegistrationPage } from '@/features/auth/pages/WorkshopRegistrationPage'
 import { AuthCallbackPage } from '@/features/auth/pages/AuthCallbackPage'
 import { AuthErrorPage } from '@/features/auth/pages/AuthErrorPage'
@@ -17,6 +18,10 @@ import { AdminOrcamentosPage } from '@/features/admin/orcamentos/pages/AdminOrca
 import { AdminClientesPage } from '@/features/admin/clientes/pages/AdminClientesPage'
 import { AdminVeiculosPage } from '@/features/admin/veiculos/pages/AdminVeiculosPage'
 import { AdminVeiculoNovoPage } from '@/features/admin/veiculos/pages/AdminVeiculoNovoPage'
+import { AdminVeiculoDetailPage } from '@/features/admin/veiculos/pages/AdminVeiculoDetailPage'
+import { AdminFuncionariosPage } from '@/features/admin/funcionarios/pages/AdminFuncionariosPage'
+import { FuncionarioOrdensPage } from '@/features/employee/pages/FuncionarioOrdensPage'
+import { FuncionarioOrdemDetailPage } from '@/features/employee/pages/FuncionarioOrdemDetailPage'
 import { AdminServicosPage } from '@/features/admin/servicos/pages/AdminServicosPage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { VehiclesPage } from '@/features/vehicles/pages/VehiclesPage'
@@ -30,7 +35,9 @@ function HomeRedirect() {
   const { isLoading, isAuthenticated, role } = useAuthContext()
   if (isLoading) return <LoadingState className="h-screen" />
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  return <Navigate to={role === 'admin' ? '/admin/dashboard' : '/dashboard'} replace />
+  if (role === 'admin')    return <Navigate to="/admin/dashboard"     replace />
+  if (role === 'employee') return <Navigate to="/funcionario/ordens"  replace />
+  return <Navigate to="/dashboard" replace />
 }
 
 // Rotas públicas (login, entry): se autenticado, redireciona
@@ -38,7 +45,11 @@ function PublicLayout() {
   const { isAuthenticated, isLoading, role } = useAuthContext()
   if (isLoading) return <LoadingState className="h-screen" />
   if (isAuthenticated) {
-    return <Navigate to={role === 'admin' ? '/admin/dashboard' : '/dashboard'} replace />
+    const dest =
+      role === 'admin'    ? '/admin/dashboard' :
+      role === 'employee' ? '/funcionario/ordens' :
+      '/dashboard'
+    return <Navigate to={dest} replace />
   }
   return <Outlet />
 }
@@ -77,6 +88,19 @@ function AdminLayout() {
   )
 }
 
+// Portal do funcionário
+function EmployeeLayout() {
+  const { isAuthenticated, isLoading, role } = useAuthContext()
+  if (isLoading) return <LoadingState className="h-screen" />
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (role !== 'employee') return <Navigate to="/" replace />
+  return (
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  )
+}
+
 const router = createBrowserRouter([
   // Raiz
   { path: '/', element: <HomeRedirect /> },
@@ -89,6 +113,9 @@ const router = createBrowserRouter([
 
   // Entrada do cliente via link da oficina — sempre acessível
   { path: '/acesso/:slug', element: <WorkshopEntryPage /> },
+
+  // Convite de funcionário via link — sempre acessível
+  { path: '/convite-funcionario/:slug', element: <EmployeeInvitePage /> },
 
   // Rotas públicas
   {
@@ -125,11 +152,23 @@ const router = createBrowserRouter([
       { path: '/admin/dashboard', element: <AdminDashboardPage /> },
       { path: '/admin/veiculos', element: <AdminVeiculosPage /> },
       { path: '/admin/veiculos/novo', element: <AdminVeiculoNovoPage /> },
+      { path: '/admin/veiculos/:id', element: <AdminVeiculoDetailPage /> },
       { path: '/admin/financeiro', element: <AdminFinanceiroPage /> },
       { path: '/admin/orcamentos', element: <AdminOrcamentosPage /> },
-      { path: '/admin/clientes', element: <AdminClientesPage /> },
+      { path: '/admin/clientes',      element: <AdminClientesPage />     },
+      { path: '/admin/funcionarios',  element: <AdminFuncionariosPage /> },
       { path: '/admin/servicos', element: <AdminServicosPage /> },
       { path: '/admin/configuracoes', element: <AdminSettingsPage /> },
+    ],
+  },
+
+  // Portal do funcionário
+  {
+    element: <EmployeeLayout />,
+    children: [
+      { path: '/funcionario',               element: <Navigate to="/funcionario/ordens" replace /> },
+      { path: '/funcionario/ordens',        element: <FuncionarioOrdensPage /> },
+      { path: '/funcionario/ordens/:id',    element: <FuncionarioOrdemDetailPage /> },
     ],
   },
 

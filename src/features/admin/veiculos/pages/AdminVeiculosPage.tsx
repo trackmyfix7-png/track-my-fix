@@ -4,58 +4,46 @@ import { Plus } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { LoadingState } from '@/components/shared/LoadingState'
+import { ErrorState } from '@/components/shared/ErrorState'
+import { EmptyState } from '@/components/shared/EmptyState'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { cn } from '@/lib/utils'
+import { useWorkshopOrders } from '../hooks/useAdminVehicles'
+import type { ServiceOrderStatus } from '@/types/database'
+import { differenceInDays, parseISO } from 'date-fns'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Tabs ──────────────────────────────────────────────────────────────────────
 
-type VehicleStatus = 'todos' | 'em_servico' | 'diagnostico' | 'aguard_aprovacao' | 'pronto'
+type TabKey = 'todos' | ServiceOrderStatus
 
-interface AdminVehicleRow {
-  id: string
-  name: string
-  plate: string
-  client: string
-  km: number
-  status: Exclude<VehicleStatus, 'todos'>
-}
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const mockVehicles: AdminVehicleRow[] = [
-  { id: '1', name: 'Honda Civic 2021',       plate: 'ABC-1234', client: 'Carlos R.',  km: 72400, status: 'aguard_aprovacao' },
-  { id: '2', name: 'VW Gol 2018',            plate: 'DEF-5678', client: 'Maria S.',   km: 62300, status: 'em_servico'       },
-  { id: '3', name: 'Chevrolet Onix 2022',    plate: 'GHI-9012', client: 'Pedro L.',   km: 41800, status: 'diagnostico'      },
-  { id: '4', name: 'Hyundai HB20 2023',      plate: 'JKL-3456', client: 'Felipe A.',  km: 18200, status: 'aguard_aprovacao' },
-  { id: '5', name: 'Toyota Corolla 2020',    plate: 'MNO-7890', client: 'Roberto M.', km: 53600, status: 'diagnostico'      },
-  { id: '6', name: 'Fiat Strada 2019',       plate: 'PQR-1122', client: 'Carlos R.',  km: 88500, status: 'em_servico'       },
-  { id: '7', name: 'Chevrolet Onix 2022',    plate: 'STU-3344', client: 'Ana P.',     km: 29100, status: 'aguard_aprovacao' },
-  { id: '8', name: 'Toyota Corolla 2019',    plate: 'VWX-5566', client: 'João F.',    km: 71300, status: 'pronto'           },
+const tabs: { key: TabKey; label: string }[] = [
+  { key: 'todos',             label: 'Todos'             },
+  { key: 'in_progress',       label: 'Em serviço'        },
+  { key: 'diagnosis',         label: 'Diagnóstico'       },
+  { key: 'received',          label: 'Recebido'          },
+  { key: 'awaiting_approval', label: 'Aguard. aprovação' },
+  { key: 'ready',             label: 'Pronto'            },
 ]
-
-// ─── Filter tabs ───────────────────────────────────────────────────────────────
-
-const tabs: { key: VehicleStatus; label: string }[] = [
-  { key: 'todos',           label: 'Todos'            },
-  { key: 'em_servico',      label: 'Em serviço'       },
-  { key: 'diagnostico',     label: 'Diagnóstico'      },
-  { key: 'aguard_aprovacao',label: 'Aguard. aprovação' },
-  { key: 'pronto',          label: 'Pronto'           },
-]
-
-function getCount(status: VehicleStatus) {
-  if (status === 'todos') return mockVehicles.length
-  return mockVehicles.filter((v) => v.status === status).length
-}
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export function AdminVeiculosPage() {
-  const [activeTab, setActiveTab] = useState<VehicleStatus>('todos')
+  const [activeTab, setActiveTab] = useState<TabKey>('todos')
+  const { data: orders, isLoading, isError, refetch } = useWorkshopOrders()
 
-  const filtered =
-    activeTab === 'todos'
-      ? mockVehicles
-      : mockVehicles.filter((v) => v.status === activeTab)
+  if (isLoading) return <LoadingState />
+  if (isError)   return <ErrorState onRetry={refetch} />
+
+  const all = orders ?? []
+  const filtered = activeTab === 'todos'
+    ? all
+    : all.filter((o) => o.status === activeTab)
+
+  function countTab(key: TabKey) {
+    if (key === 'todos') return all.length
+    return all.filter((o) => o.status === key).length
+  }
 
   return (
     <div className="space-y-6">
@@ -75,7 +63,7 @@ export function AdminVeiculosPage() {
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => {
-          const count = getCount(tab.key)
+          const count = countTab(tab.key)
           const isActive = activeTab === tab.key
           return (
             <button
@@ -89,12 +77,10 @@ export function AdminVeiculosPage() {
               )}
             >
               {tab.label}
-              <span
-                className={cn(
-                  'flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold',
-                  isActive ? 'bg-white/20 text-white' : 'bg-muted text-foreground'
-                )}
-              >
+              <span className={cn(
+                'flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold',
+                isActive ? 'bg-white/20 text-white' : 'bg-muted text-foreground'
+              )}>
                 {count}
               </span>
             </button>
@@ -105,69 +91,78 @@ export function AdminVeiculosPage() {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Veículo
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Placa
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Cliente
-                  </th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    KM
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((v) => (
-                  <tr
-                    key={v.id}
-                    className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
-                  >
-                    <td className="px-5 py-3">
-                      <Link
-                        to={`/admin/veiculos/${v.id}`}
-                        className="text-sm font-semibold text-brand-secondary hover:underline"
+          {filtered.length === 0 ? (
+            <EmptyState title="Nenhum veículo neste status" className="py-10" />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    {['Veículo', 'Placa', 'Cliente', 'KM', 'Dias', 'Status'].map((h) => (
+                      <th
+                        key={h}
+                        className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground last:text-right"
                       >
-                        {v.name}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
-                        {v.plate}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className="text-sm text-foreground">{v.client}</span>
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <span className="text-sm text-muted-foreground">
-                        {v.km.toLocaleString('pt-BR')}
-                      </span>
-                    </td>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-sm text-muted-foreground">
-                      Nenhum veículo neste status.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map((order) => {
+                    const daysIn = differenceInDays(new Date(), parseISO(order.entry_date))
+                    const isAlert = daysIn >= 4
+
+                    return (
+                      <tr
+                        key={order.id}
+                        className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
+                      >
+                        <td className="px-5 py-3">
+                          <Link
+                            to={`/admin/veiculos/${order.id}`}
+                            className="text-sm font-semibold text-brand-secondary hover:underline"
+                          >
+                            {order.vehicle.brand} {order.vehicle.model} {order.vehicle.year}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
+                            {order.vehicle.plate}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="text-sm text-foreground">
+                            {order.vehicle.owner?.full_name ?? '—'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="text-sm text-muted-foreground">
+                            {order.vehicle.mileage
+                              ? order.vehicle.mileage.toLocaleString('pt-BR')
+                              : '—'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={cn(
+                            'text-sm font-medium',
+                            isAlert ? 'text-brand-accent font-semibold' : 'text-muted-foreground'
+                          )}>
+                            {daysIn === 0 ? 'Hoje' : `${daysIn}d${isAlert ? ' ⚠' : ''}`}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <StatusBadge status={order.status} />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
-
-      <p className="text-xs text-muted-foreground text-center">
-        Veículos — lista completa com filtros por status e ações
-      </p>
     </div>
   )
 }

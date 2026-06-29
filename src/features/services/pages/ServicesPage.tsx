@@ -92,12 +92,10 @@ export function ServicesPage() {
                       {service.description ?? '—'}
                     </TableCell>
                     <TableCell>
-                      {service.estimated_time_days !== null ? (
+                      {service.estimated_time ? (
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Clock className="h-3.5 w-3.5" />
-                          {service.estimated_time_days === 0
-                            ? 'No dia'
-                            : `${service.estimated_time_days}d`}
+                          {service.estimated_time}
                         </div>
                       ) : (
                         '—'

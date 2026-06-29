@@ -41,7 +41,7 @@ export function RecentHistoryTable({ orders }: RecentHistoryTableProps) {
               {order.exit_date ? formatDate(order.exit_date) : '—'}
             </TableCell>
             <TableCell className="text-muted-foreground max-w-[180px] truncate">
-              {order.service_description ?? '—'}
+              {order.problem_description ?? '—'}
             </TableCell>
             <TableCell>
               <ServiceOrderStatusBadge status={order.status} />

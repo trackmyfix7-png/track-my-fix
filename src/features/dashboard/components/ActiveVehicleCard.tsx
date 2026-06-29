@@ -75,10 +75,10 @@ export function ActiveVehicleCard({ order }: ActiveVehicleCardProps) {
               <span className="font-medium text-foreground">Entrada:</span>{' '}
               {formatDate(order.entry_date)}
             </span>
-            {order.service_description && (
+            {order.problem_description && (
               <span className="truncate">
-                <span className="font-medium text-foreground">Serviço:</span>{' '}
-                {order.service_description}
+                <span className="font-medium text-foreground">Problema:</span>{' '}
+                {order.problem_description}
               </span>
             )}
           </div>

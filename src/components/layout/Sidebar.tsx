@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Car, FileText, Receipt, Wrench, Bell, LogOut, LayoutDashboard, X, Users, Settings } from 'lucide-react'
+import { Car, FileText, Receipt, Wrench, Bell, LogOut, LayoutDashboard, X, Users, HardHat, Settings } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { cn, getInitials } from '@/lib/utils'
@@ -25,13 +25,18 @@ const clientNavItems: NavItem[] = [
 ]
 
 const adminNavItems: NavItem[] = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-  { label: 'Veículos', href: '/admin/veiculos', icon: Car },
-  { label: 'Orçamentos', href: '/admin/orcamentos', icon: FileText, badgeKey: 'budgets' },
-  { label: 'Financeiro', href: '/admin/financeiro', icon: Receipt },
-  { label: 'Clientes', href: '/admin/clientes', icon: Users },
-  { label: 'Serviços', href: '/admin/servicos', icon: Wrench },
-  { label: 'Configurações', href: '/admin/configuracoes', icon: Settings },
+  { label: 'Dashboard',    href: '/admin/dashboard',     icon: LayoutDashboard },
+  { label: 'Veículos',     href: '/admin/veiculos',      icon: Car             },
+  { label: 'Orçamentos',   href: '/admin/orcamentos',    icon: FileText, badgeKey: 'budgets' },
+  { label: 'Financeiro',   href: '/admin/financeiro',    icon: Receipt         },
+  { label: 'Clientes',     href: '/admin/clientes',      icon: Users           },
+  { label: 'Funcionários', href: '/admin/funcionarios',  icon: HardHat         },
+  { label: 'Serviços',     href: '/admin/servicos',      icon: Wrench          },
+  { label: 'Configurações',href: '/admin/configuracoes', icon: Settings        },
+]
+
+const employeeNavItems: NavItem[] = [
+  { label: 'Ordens em andamento', href: '/funcionario/ordens', icon: Car },
 ]
 
 function useSidebarBadges() {
@@ -41,7 +46,7 @@ function useSidebarBadges() {
       const { count } = await supabase
         .from('budgets')
         .select('id', { count: 'exact', head: true })
-        .in('status', ['awaiting_approval', 'requested'])
+        .eq('status', 'awaiting_approval')
       return count ?? 0
     },
     refetchInterval: 60_000,
@@ -72,7 +77,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const badges = useSidebarBadges()
 
-  const navItems = role === 'admin' ? adminNavItems : clientNavItems
+  const navItems =
+    role === 'admin'    ? adminNavItems
+    : role === 'employee' ? employeeNavItems
+    : clientNavItems
 
   const badgeMap: Record<string, number> = {
     budgets: badges.budgets,
@@ -112,7 +120,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <span className="text-base font-bold text-white tracking-tight">TrackMyFix</span>
             </div>
             <p className="mt-0.5 text-[10px] text-white/50 pl-9 uppercase tracking-widest">
-              {role === 'admin' ? 'Portal da oficina' : 'Portal do cliente'}
+              {role === 'admin' ? 'Portal da oficina' : role === 'employee' ? 'Portal do funcionário' : 'Portal do cliente'}
             </p>
           </div>
           <button
@@ -136,7 +144,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               {user?.profile.full_name ?? (role === 'admin' ? 'Administrador' : 'Cliente')}
             </p>
             <p className="text-xs text-white/50 truncate">
-              {role === 'admin' ? 'Administrador' : user?.email}
+              {role === 'admin' ? 'Administrador' : role === 'employee' ? 'Funcionário' : user?.email}
             </p>
           </div>
         </div>

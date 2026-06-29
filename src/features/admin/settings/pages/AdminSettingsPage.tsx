@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, Check, Pencil, MapPin, Phone, Wrench, Bell, Building2 } from 'lucide-react'
+import { Pencil, MapPin, Phone, Wrench, Building2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -10,17 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { getInitials } from '@/lib/utils'
-
-// ---------------------------------------------------------------------------
-// Mock: funcionários (feature futura)
-// ---------------------------------------------------------------------------
-const mockStaff = [
-  { id: '1', name: 'Rafael Pereira', role: 'Mecânico', email: 'rafael@email.com' },
-  { id: '2', name: 'Lucas Santos', role: 'Mecânico', email: 'lucas@email.com' },
-  { id: '3', name: 'Marcos Costa', role: 'Mecânico', email: 'marcos@email.com' },
-]
 
 // ---------------------------------------------------------------------------
 // Schema de edição
@@ -101,7 +90,7 @@ function WorkshopDataCard() {
             </div>
             <div className="space-y-1.5 pt-1 border-t border-border">
               <Label>
-                Slug do link de acesso
+                Slug dos links de convite
                 <span className="ml-1 font-normal text-muted-foreground text-xs">(somente letras, números e -)</span>
               </Label>
               <div className="flex items-center rounded-md border border-input overflow-hidden focus-within:ring-1 focus-within:ring-ring">
@@ -110,6 +99,9 @@ function WorkshopDataCard() {
                 </span>
                 <Input {...register('slug')} placeholder="minha-oficina" className="border-0 rounded-none focus-visible:ring-0 shadow-none" />
               </div>
+              <p className="text-xs text-muted-foreground">
+                Alterar o slug invalida os links de convite já compartilhados.
+              </p>
               {errors.slug && <p className="text-xs text-destructive">{errors.slug.message}</p>}
             </div>
             <div className="flex gap-2 pt-1">
@@ -124,10 +116,10 @@ function WorkshopDataCard() {
         ) : (
           <ul className="space-y-3">
             {[
-              { icon: Wrench,   label: 'Nome',      value: workshop?.name },
-              { icon: MapPin,   label: 'Endereço',  value: workshop?.address },
-              { icon: Phone,    label: 'Telefone',  value: workshop?.phone },
-              { icon: Building2,label: 'CNPJ',      value: workshop?.cnpj },
+              { icon: Wrench,    label: 'Nome',      value: workshop?.name },
+              { icon: MapPin,    label: 'Endereço',  value: workshop?.address },
+              { icon: Phone,     label: 'Telefone',  value: workshop?.phone },
+              { icon: Building2, label: 'CNPJ',      value: workshop?.cnpj },
             ].map(({ icon: Icon, label, value }) => (
               <li key={label} className="flex items-start gap-3">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-primary/10">
@@ -149,140 +141,18 @@ function WorkshopDataCard() {
 }
 
 // ---------------------------------------------------------------------------
-// Seção: Notificações (mock)
-// ---------------------------------------------------------------------------
-function NotificationsCard() {
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Notificações</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2">
-          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-secondary/15">
-            <Bell className="h-3 w-3 text-brand-secondary" />
-          </div>
-          <p className="text-sm text-muted-foreground">Notif. push ativado</p>
-          <Check className="ml-auto h-4 w-4 text-brand-secondary" />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Seção: Funcionários (mock)
-// ---------------------------------------------------------------------------
-function StaffCard() {
-  return (
-    <Card className="h-fit">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Funcionários</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {mockStaff.map((member) => (
-          <div key={member.id} className="flex items-center gap-3">
-            <Avatar className="h-9 w-9 flex-shrink-0">
-              <AvatarFallback className="bg-brand-secondary/20 text-brand-primary text-xs font-semibold">
-                {getInitials(member.name)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground truncate">{member.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-            </div>
-            <span className="flex-shrink-0 rounded-full bg-brand-primary/10 px-2 py-0.5 text-[10px] font-medium text-brand-primary">
-              {member.role}
-            </span>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Seção: Link de acesso (US-03)
-// ---------------------------------------------------------------------------
-function AccessLinkCard() {
-  const { data: workshop } = useWorkshop()
-  const [copied, setCopied] = useState(false)
-
-  const link = workshop
-    ? `${window.location.origin}/acesso/${workshop.slug}`
-    : ''
-
-  function handleCopy() {
-    if (!link) return
-    navigator.clipboard.writeText(link)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Link de acesso da oficina</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Envie este link para seus clientes acessarem o portal
-        </p>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5">
-          <p className="flex-1 truncate text-sm font-mono text-brand-primary">
-            {link || '—'}
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex-shrink-0 gap-1.5 h-8"
-            onClick={handleCopy}
-            disabled={!link}
-          >
-            {copied ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-green-600" />
-                <span className="text-xs text-green-600">Copiado!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5" />
-                <span className="text-xs">Copiar</span>
-              </>
-            )}
-          </Button>
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          O link é permanente — ao clicar, o cliente faz login com Google e é vinculado automaticamente à sua oficina.
-        </p>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 export function AdminSettingsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Configurações" />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Coluna esquerda */}
-        <div className="lg:col-span-2 space-y-4">
-          <WorkshopDataCard />
-          <NotificationsCard />
-        </div>
-
-        {/* Coluna direita */}
-        <div className="lg:col-span-1">
-          <StaffCard />
-        </div>
+      <PageHeader
+        title="Configurações"
+        description="Dados e preferências da oficina"
+      />
+      <div className="max-w-xl">
+        <WorkshopDataCard />
       </div>
-
-      {/* Link de acesso — largura total */}
-      <AccessLinkCard />
     </div>
   )
 }

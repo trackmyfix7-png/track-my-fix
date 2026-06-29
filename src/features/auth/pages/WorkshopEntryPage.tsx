@@ -20,7 +20,11 @@ export function WorkshopEntryPage() {
   // Se já está autenticado, redireciona direto para o portal correto
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(role === 'admin' ? '/admin/dashboard' : '/dashboard', { replace: true })
+      const dest =
+        role === 'admin'    ? '/admin/dashboard' :
+        role === 'employee' ? '/funcionario/ordens' :
+        '/dashboard'
+      navigate(dest, { replace: true })
     }
   }, [isAuthenticated, role, navigate])
 
