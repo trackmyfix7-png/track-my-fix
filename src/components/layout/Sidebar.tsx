@@ -2,9 +2,8 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { Car, FileText, Receipt, Wrench, Bell, LogOut, LayoutDashboard, X, Users, HardHat, Settings } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { cn, getInitials } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { useAuthContext } from '@/contexts/AuthContext'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 
 interface NavItem {
@@ -130,23 +129,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           >
             <X className="h-4 w-4" />
           </button>
-        </div>
-
-        {/* User info */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-white/10">
-          <Avatar className="h-9 w-9 flex-shrink-0">
-            <AvatarFallback className="bg-brand-secondary text-white text-xs">
-              {user ? getInitials(user.profile.full_name) : '?'}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
-              {user?.profile.full_name ?? (role === 'admin' ? 'Administrador' : 'Cliente')}
-            </p>
-            <p className="text-xs text-white/50 truncate">
-              {role === 'admin' ? 'Administrador' : role === 'employee' ? 'Funcionário' : user?.email}
-            </p>
-          </div>
         </div>
 
         {/* Navigation */}
