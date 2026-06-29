@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Car, Copy, CheckCheck, Link, UserPlus, Pencil, Trash2, Mail, Phone } from 'lucide-react'
+import { Search, Car, Copy, CheckCheck, Link, UserPlus, Pencil, Trash2, Mail, Phone, MapPin, FileText } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -123,47 +123,84 @@ function ClientFormModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{initial ? 'Editar cliente' : 'Adicionar cliente'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-3 pt-1">
+      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
+        {/* Cabeçalho */}
+        <div className="flex items-center gap-4 border-b border-border px-6 py-5">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-primary/10">
+            <UserPlus className="h-5 w-5 text-brand-primary" />
+          </div>
+          <div>
+            <DialogTitle className="text-base">
+              {initial ? 'Editar cliente' : 'Novo cliente'}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {initial ? 'Atualize os dados do cadastro' : 'Pré-cadastre um cliente na oficina'}
+            </p>
+          </div>
+        </div>
+
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {/* Nome */}
           <div className="space-y-1.5">
-            <Label>Nome *</Label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Nome completo <span className="text-brand-accent normal-case font-normal">*</span>
+            </label>
             <Input
-              placeholder="Nome completo"
+              placeholder="Ex: João Silva"
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               required
+              className="h-10"
             />
           </div>
+
+          {/* Telefone + E-mail */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Telefone</Label>
-              <Input placeholder="(11) 99999-0000" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+              <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Phone className="h-3 w-3" /> Telefone
+              </label>
+              <Input placeholder="(11) 99999-0000" value={form.phone} onChange={(e) => set('phone', e.target.value)} className="h-10" />
             </div>
             <div className="space-y-1.5">
-              <Label>E-mail</Label>
-              <Input type="email" placeholder="email@exemplo.com" value={form.email} onChange={(e) => set('email', e.target.value)} />
+              <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Mail className="h-3 w-3" /> E-mail
+              </label>
+              <Input type="email" placeholder="email@exemplo.com" value={form.email} onChange={(e) => set('email', e.target.value)} className="h-10" />
             </div>
           </div>
+
+          {/* Endereço */}
           <div className="space-y-1.5">
-            <Label>Endereço</Label>
-            <Input placeholder="Rua, número, bairro..." value={form.address} onChange={(e) => set('address', e.target.value)} />
+            <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <MapPin className="h-3 w-3" /> Endereço
+            </label>
+            <Input placeholder="Rua, número, bairro, cidade..." value={form.address} onChange={(e) => set('address', e.target.value)} className="h-10" />
           </div>
+
+          {/* Observações */}
           <div className="space-y-1.5">
-            <Label>Observações</Label>
-            <Input placeholder="Notas internas..." value={form.notes} onChange={(e) => set('notes', e.target.value)} />
+            <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <FileText className="h-3 w-3" /> Observações
+            </label>
+            <Input placeholder="Notas internas..." value={form.notes} onChange={(e) => set('notes', e.target.value)} className="h-10" />
           </div>
+
+          {/* Dica de vínculo automático */}
           {form.email && (
-            <p className="text-xs text-muted-foreground bg-muted/60 rounded-md px-3 py-2">
-              Se este cliente usar o link de convite com o e-mail <strong>{form.email}</strong>, os dados serão vinculados automaticamente à conta dele.
-            </p>
+            <div className="rounded-lg border border-brand-secondary/30 bg-brand-secondary/5 px-3 py-2.5">
+              <p className="text-xs text-brand-primary/80">
+                Se este cliente usar o link de convite com <strong>{form.email}</strong>, o cadastro será vinculado automaticamente.
+              </p>
+            </div>
           )}
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" variant="accent" disabled={!form.name.trim() || isPending}>
-              {isPending ? 'Salvando...' : initial ? 'Salvar' : 'Adicionar'}
+
+          {/* Botões */}
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" variant="accent" size="sm" disabled={!form.name.trim() || isPending}>
+              {isPending ? 'Salvando...' : initial ? 'Salvar alterações' : 'Adicionar cliente'}
             </Button>
           </div>
         </form>

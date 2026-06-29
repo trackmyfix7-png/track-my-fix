@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   Trash2, Users, Link, Copy, CheckCheck,
   UserPlus, Pencil, GraduationCap, Plus, X,
+  Phone, Mail, Briefcase, Calendar, FileText, HardHat,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -94,69 +95,83 @@ function EmployeeFormModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{initial ? 'Editar funcionário' : 'Adicionar funcionário'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-3 pt-1">
+      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
+        {/* Cabeçalho */}
+        <div className="flex items-center gap-4 border-b border-border px-6 py-5">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-secondary/10">
+            <HardHat className="h-5 w-5 text-brand-secondary" />
+          </div>
+          <div>
+            <DialogTitle className="text-base">
+              {initial ? 'Editar funcionário' : 'Novo funcionário'}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {initial ? 'Atualize os dados do cadastro' : 'Adicione um membro à equipe'}
+            </p>
+          </div>
+        </div>
+
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {/* Nome */}
           <div className="space-y-1.5">
-            <Label>Nome *</Label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Nome completo <span className="text-brand-accent normal-case font-normal">*</span>
+            </label>
             <Input
-              placeholder="Nome completo"
+              placeholder="Ex: Carlos Souza"
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               required
+              className="h-10"
             />
           </div>
+
+          {/* Cargo + Telefone */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Cargo / Função</Label>
-              <Input
-                placeholder="Ex: Mecânico"
-                value={form.position}
-                onChange={(e) => set('position', e.target.value)}
-              />
+              <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Briefcase className="h-3 w-3" /> Cargo
+              </label>
+              <Input placeholder="Ex: Mecânico" value={form.position} onChange={(e) => set('position', e.target.value)} className="h-10" />
             </div>
             <div className="space-y-1.5">
-              <Label>Telefone</Label>
-              <Input
-                placeholder="(11) 99999-0000"
-                value={form.phone}
-                onChange={(e) => set('phone', e.target.value)}
-              />
+              <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Phone className="h-3 w-3" /> Telefone
+              </label>
+              <Input placeholder="(11) 99999-0000" value={form.phone} onChange={(e) => set('phone', e.target.value)} className="h-10" />
             </div>
           </div>
+
+          {/* E-mail + Admissão */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>E-mail</Label>
-              <Input
-                type="email"
-                placeholder="email@exemplo.com"
-                value={form.email}
-                onChange={(e) => set('email', e.target.value)}
-              />
+              <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Mail className="h-3 w-3" /> E-mail
+              </label>
+              <Input type="email" placeholder="email@exemplo.com" value={form.email} onChange={(e) => set('email', e.target.value)} className="h-10" />
             </div>
             <div className="space-y-1.5">
-              <Label>Data de admissão</Label>
-              <Input
-                type="date"
-                value={form.hired_at}
-                onChange={(e) => set('hired_at', e.target.value)}
-              />
+              <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Calendar className="h-3 w-3" /> Admissão
+              </label>
+              <Input type="date" value={form.hired_at} onChange={(e) => set('hired_at', e.target.value)} className="h-10" />
             </div>
           </div>
+
+          {/* Observações */}
           <div className="space-y-1.5">
-            <Label>Observações</Label>
-            <Input
-              placeholder="Informações adicionais..."
-              value={form.notes}
-              onChange={(e) => set('notes', e.target.value)}
-            />
+            <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <FileText className="h-3 w-3" /> Observações
+            </label>
+            <Input placeholder="Informações adicionais..." value={form.notes} onChange={(e) => set('notes', e.target.value)} className="h-10" />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" variant="accent" disabled={!form.name.trim() || isPending}>
-              {isPending ? 'Salvando...' : initial ? 'Salvar' : 'Adicionar'}
+
+          {/* Botões */}
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" variant="accent" size="sm" disabled={!form.name.trim() || isPending}>
+              {isPending ? 'Salvando...' : initial ? 'Salvar alterações' : 'Adicionar funcionário'}
             </Button>
           </div>
         </form>
