@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, MapPin, Phone, Wrench, Building2 } from 'lucide-react'
+import { Pencil, MapPin, Phone, Wrench, Building2, ParkingSquare } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -11,14 +11,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-// ---------------------------------------------------------------------------
-// Schema de edição
-// ---------------------------------------------------------------------------
 const editSchema = z.object({
-  name: z.string().min(2, 'Nome obrigatório'),
-  address: z.string().optional(),
-  phone: z.string().optional(),
-  cnpj: z.string().optional(),
+  name:     z.string().min(2, 'Nome obrigatório'),
+  address:  z.string().optional(),
+  phone:    z.string().optional(),
+  cnpj:     z.string().optional(),
+  capacity: z.coerce.number().int().min(1, 'Mínimo 1 vaga').optional(),
   slug: z
     .string()
     .min(2, 'Slug obrigatório')
@@ -26,9 +24,6 @@ const editSchema = z.object({
 })
 type EditFormData = z.infer<typeof editSchema>
 
-// ---------------------------------------------------------------------------
-// Seção: Dados da oficina
-// ---------------------------------------------------------------------------
 function WorkshopDataCard() {
   const { data: workshop, isLoading } = useWorkshop()
   const { mutateAsync: updateWorkshop, isPending } = useUpdateWorkshop()
@@ -37,7 +32,14 @@ function WorkshopDataCard() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<EditFormData>({
     resolver: zodResolver(editSchema),
     values: workshop
-      ? { name: workshop.name, slug: workshop.slug, address: workshop.address ?? '', phone: workshop.phone ?? '', cnpj: workshop.cnpj ?? '' }
+      ? {
+          name:     workshop.name,
+          slug:     workshop.slug,
+          address:  workshop.address  ?? '',
+          phone:    workshop.phone    ?? '',
+          cnpj:     workshop.cnpj     ?? '',
+          capacity: workshop.capacity ?? undefined,
+        }
       : undefined,
   })
 
@@ -88,6 +90,22 @@ function WorkshopDataCard() {
                 <Input {...register('cnpj')} placeholder="00.000.000/0001-00" />
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label>
+                Capacidade de vagas
+                <span className="ml-1 font-normal text-muted-foreground text-xs">
+                  (veículos simultâneos na oficina)
+                </span>
+              </Label>
+              <Input
+                {...register('capacity')}
+                type="number"
+                min={1}
+                placeholder="Ex: 10"
+                className="w-32"
+              />
+              {errors.capacity && <p className="text-xs text-destructive">{errors.capacity.message}</p>}
+            </div>
             <div className="space-y-1.5 pt-1 border-t border-border">
               <Label>
                 Slug dos links de convite
@@ -116,10 +134,11 @@ function WorkshopDataCard() {
         ) : (
           <ul className="space-y-3">
             {[
-              { icon: Wrench,    label: 'Nome',      value: workshop?.name },
-              { icon: MapPin,    label: 'Endereço',  value: workshop?.address },
-              { icon: Phone,     label: 'Telefone',  value: workshop?.phone },
-              { icon: Building2, label: 'CNPJ',      value: workshop?.cnpj },
+              { icon: Wrench,        label: 'Nome',       value: workshop?.name },
+              { icon: MapPin,        label: 'Endereço',   value: workshop?.address },
+              { icon: Phone,         label: 'Telefone',   value: workshop?.phone },
+              { icon: Building2,     label: 'CNPJ',       value: workshop?.cnpj },
+              { icon: ParkingSquare, label: 'Capacidade', value: workshop?.capacity ? `${workshop.capacity} vagas` : null },
             ].map(({ icon: Icon, label, value }) => (
               <li key={label} className="flex items-start gap-3">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-primary/10">
@@ -140,9 +159,6 @@ function WorkshopDataCard() {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 export function AdminSettingsPage() {
   return (
     <div className="space-y-6">

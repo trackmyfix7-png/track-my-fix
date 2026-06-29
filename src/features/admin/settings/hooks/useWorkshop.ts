@@ -26,11 +26,11 @@ export function useUpdateWorkshop() {
 
   return useMutation({
     mutationFn: async ({
-      id, name, slug, address, phone, cnpj,
-    }: { id: string; name: string; slug: string; address?: string; phone?: string; cnpj?: string }) => {
+      id, name, slug, address, phone, cnpj, capacity,
+    }: { id: string; name: string; slug: string; address?: string; phone?: string; cnpj?: string; capacity?: number }) => {
       const { data, error } = await supabase
         .from('workshops')
-        .update({ name, slug, address: address || null, phone: phone || null, cnpj: cnpj || null })
+        .update({ name, slug, address: address || null, phone: phone || null, cnpj: cnpj || null, capacity: capacity ?? null })
         .eq('id', id)
         .select()
         .single()

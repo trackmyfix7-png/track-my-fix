@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
-import { startOfMonth, differenceInDays, parseISO } from 'date-fns'
+import { startOfMonth, subMonths, differenceInDays, parseISO, format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 export interface FinanceiroStats {
   monthlyRevenue: number
@@ -61,6 +62,59 @@ export async function fetchFinanceiroStats(workshopId: string): Promise<Financei
       : 0
 
   return { monthlyRevenue, avgTicket, approvalRate, avgDaysInShop }
+}
+
+export interface MonthlyRevenuePoint {
+  month: string
+  revenue: number
+}
+
+export async function fetchMonthlyRevenueHistory(workshopId: string): Promise<MonthlyRevenuePoint[]> {
+  const since = subMonths(startOfMonth(new Date()), 5).toISOString()
+
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('amount, issued_at')
+    .eq('workshop_id', workshopId)
+    .eq('status', 'paid')
+    .gte('issued_at', since)
+
+  if (error) throw error
+
+  const revenueByMonth: Record<string, number> = {}
+  for (const row of (data ?? [])) {
+    const key = format(parseISO(row.issued_at), 'yyyy-MM')
+    revenueByMonth[key] = (revenueByMonth[key] ?? 0) + (row.amount ?? 0)
+  }
+
+  return Array.from({ length: 6 }, (_, i) => {
+    const date = subMonths(new Date(), 5 - i)
+    const key = format(date, 'yyyy-MM')
+    return { month: format(date, 'MMM', { locale: ptBR }), revenue: revenueByMonth[key] ?? 0 }
+  })
+}
+
+export interface InvoiceStatusBreakdown {
+  pending: number
+  paid: number
+  overdue: number
+}
+
+export async function fetchInvoiceStatusBreakdown(workshopId: string): Promise<InvoiceStatusBreakdown> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('status')
+    .eq('workshop_id', workshopId)
+
+  if (error) throw error
+
+  const result = { pending: 0, paid: 0, overdue: 0 }
+  for (const row of (data ?? [])) {
+    if (row.status === 'pending') result.pending++
+    else if (row.status === 'paid') result.paid++
+    else if (row.status === 'overdue') result.overdue++
+  }
+  return result
 }
 
 export async function fetchRecentInvoices(workshopId: string): Promise<InvoiceRow[]> {

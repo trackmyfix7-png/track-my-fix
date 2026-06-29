@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Car, Receipt, Copy, CheckCheck, Link, UserPlus, Pencil, Trash2, Mail, Phone } from 'lucide-react'
+import { Search, Car, Copy, CheckCheck, Link, UserPlus, Pencil, Trash2, Mail, Phone } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { LoadingState } from '@/components/shared/LoadingState'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
-import { formatCurrency, getInitials } from '@/lib/utils'
+import { getInitials } from '@/lib/utils'
 import { useWorkshop } from '@/features/admin/settings/hooks/useWorkshop'
 import { useWorkshopClientsWithStats } from '../hooks/useAdminClients'
 import {
@@ -199,12 +199,6 @@ function ClientRow({ client }: { client: WorkshopClientRow }) {
       <td className="px-4 py-3 text-center">
         <span className="text-sm font-medium">{client.visits}</span>
       </td>
-      <td className="px-4 py-3 text-right">
-        <div className="flex items-center justify-end gap-1.5">
-          <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-sm font-semibold text-brand-primary">{formatCurrency(client.total_spent)}</span>
-        </div>
-      </td>
     </tr>
   )
 }
@@ -289,8 +283,6 @@ export function AdminClientesPage() {
     c.full_name.toLowerCase().includes(search.toLowerCase())
   )
 
-  const totalRevenue = clients.reduce((s, c) => s + c.total_spent, 0)
-
   async function handleDelete(id: string) {
     if (!confirm('Remover este cliente do cadastro?')) return
     await deleteClient.mutateAsync(id)
@@ -324,20 +316,6 @@ export function AdminClientesPage() {
             <span className="text-xs text-amber-700">Pré-cadastrados</span>
             <span className="text-sm font-bold text-amber-700">{preClients.length}</span>
           </div>
-        )}
-        {totalRevenue > 0 && (
-          <>
-            <div className="flex items-center gap-2 rounded-full border border-border bg-white px-4 py-1.5">
-              <span className="text-xs text-muted-foreground">Total faturado</span>
-              <span className="text-sm font-bold text-brand-secondary">{formatCurrency(totalRevenue)}</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-full border border-border bg-white px-4 py-1.5">
-              <span className="text-xs text-muted-foreground">Ticket médio</span>
-              <span className="text-sm font-bold text-brand-primary">
-                {formatCurrency(totalRevenue / (clients.filter((c) => c.total_spent > 0).length || 1))}
-              </span>
-            </div>
-          </>
         )}
         <div className="ml-auto">
           <Button
@@ -388,7 +366,6 @@ export function AdminClientesPage() {
                         <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cliente</th>
                         <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Veículos</th>
                         <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Visitas</th>
-                        <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total gasto</th>
                       </tr>
                     </thead>
                     <tbody>

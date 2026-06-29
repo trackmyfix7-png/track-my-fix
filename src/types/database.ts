@@ -65,6 +65,7 @@ export interface Workshop {
   address: string | null
   phone: string | null
   cnpj: string | null
+  capacity: number | null
   created_at: string
 }
 

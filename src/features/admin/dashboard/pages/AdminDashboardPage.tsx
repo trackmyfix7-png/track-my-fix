@@ -2,6 +2,10 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Car, Clock, DollarSign, AlertTriangle, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
+} from 'recharts'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatsCard } from '@/components/shared/StatsCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,10 +16,11 @@ import { useWorkshopOrders } from '@/features/admin/veiculos/hooks/useAdminVehic
 import { useQuery } from '@tanstack/react-query'
 import { useWorkshop } from '@/features/admin/settings/hooks/useWorkshop'
 import { fetchDashboardStats } from '../services/admin-dashboard.service'
+import { fetchMonthlyRevenueHistory } from '@/features/admin/financeiro/services/admin-financeiro.service'
 import type { ServiceOrderStatus } from '@/types/database'
 import type { WorkshopOrderRow } from '@/features/admin/veiculos/services/admin-vehicles.service'
 
-// ─── Kanban column config ─────────────────────────────────────────────────────
+// ─── Kanban config ────────────────────────────────────────────────────────────
 
 const columns: {
   status: ServiceOrderStatus
@@ -25,6 +30,7 @@ const columns: {
   cardBorder: string
   badgeBg:    string
   badgeText:  string
+  chartColor: string
 }[] = [
   {
     status: 'received',
@@ -34,6 +40,7 @@ const columns: {
     cardBorder: 'border-l-gray-300',
     badgeBg:    'bg-gray-100',
     badgeText:  'text-gray-500',
+    chartColor: '#9ca3af',
   },
   {
     status: 'diagnosis',
@@ -43,6 +50,7 @@ const columns: {
     cardBorder: 'border-l-brand-secondary',
     badgeBg:    'bg-brand-secondary/10',
     badgeText:  'text-brand-secondary',
+    chartColor: '#00A3E0',
   },
   {
     status: 'awaiting_approval',
@@ -52,6 +60,7 @@ const columns: {
     cardBorder: 'border-l-amber-400',
     badgeBg:    'bg-amber-50',
     badgeText:  'text-amber-600',
+    chartColor: '#f59e0b',
   },
   {
     status: 'in_progress',
@@ -61,6 +70,7 @@ const columns: {
     cardBorder: 'border-l-emerald-400',
     badgeBg:    'bg-emerald-50',
     badgeText:  'text-emerald-600',
+    chartColor: '#22c55e',
   },
   {
     status: 'ready',
@@ -70,22 +80,23 @@ const columns: {
     cardBorder: 'border-l-purple-400',
     badgeBg:    'bg-purple-50',
     badgeText:  'text-purple-600',
+    chartColor: '#a855f7',
   },
 ]
 
-// ─── Vehicle card ──────────────────────────────────────────────────────────────
+// ─── Vehicle card ─────────────────────────────────────────────────────────────
 
-function VehicleCard({ order, col }: {
-  order: WorkshopOrderRow
-  col:   typeof columns[number]
-}) {
+function VehicleCard({ order, col }: { order: WorkshopOrderRow; col: typeof columns[number] }) {
   const daysIn   = differenceInDays(new Date(), parseISO(order.entry_date))
   const hasAlert = daysIn >= 4
 
   return (
     <Link
       to={`/admin/veiculos/${order.id}`}
-      className={cn('block rounded-lg border bg-white p-3 shadow-sm border-l-4 hover:shadow-md transition-shadow', col.cardBorder)}
+      className={cn(
+        'block rounded-lg border bg-white p-3 shadow-sm border-l-4 hover:shadow-md transition-shadow',
+        col.cardBorder
+      )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -114,12 +125,9 @@ function VehicleCard({ order, col }: {
   )
 }
 
-// ─── Kanban column ─────────────────────────────────────────────────────────────
+// ─── Kanban column ────────────────────────────────────────────────────────────
 
-function KanbanColumn({ col, orders }: {
-  col:    typeof columns[number]
-  orders: WorkshopOrderRow[]
-}) {
+function KanbanColumn({ col, orders }: { col: typeof columns[number]; orders: WorkshopOrderRow[] }) {
   return (
     <div className="flex min-w-[180px] flex-1 flex-col gap-2">
       <div className={cn('flex items-center gap-2 rounded-md px-3 py-2', col.headerBg)}>
@@ -144,7 +152,37 @@ function KanbanColumn({ col, orders }: {
   )
 }
 
-// ─── Page ──────────────────────────────────────────────────────────────────────
+// ─── Revenue tooltip ─────────────────────────────────────────────────────────
+
+function RevenueTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="rounded-lg border border-border bg-white px-3 py-2 shadow-lg text-sm">
+      <p className="font-semibold text-foreground capitalize">{label}</p>
+      <p className="text-brand-secondary font-bold">{formatCurrency(payload[0].value)}</p>
+    </div>
+  )
+}
+
+// ─── Capacity bar ─────────────────────────────────────────────────────────────
+
+function CapacityBar({ current, capacity }: { current: number; capacity: number }) {
+  const pct = Math.min(100, Math.round((current / capacity) * 100))
+  const isFull = current >= capacity
+  return (
+    <div className="mt-2 space-y-1">
+      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn('h-full rounded-full transition-all', isFull ? 'bg-brand-accent' : 'bg-brand-secondary')}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-[10px] text-muted-foreground">{pct}% ocupado</p>
+    </div>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function AdminDashboardPage() {
   const today = format(new Date(), "d 'de' MMM yyyy", { locale: ptBR })
@@ -158,10 +196,26 @@ export function AdminDashboardPage() {
     enabled:  !!workshop?.id,
   })
 
+  const { data: revenueHistory } = useQuery({
+    queryKey: ['admin', 'revenue-history', workshop?.id],
+    queryFn:  () => fetchMonthlyRevenueHistory(workshop!.id),
+    enabled:  !!workshop?.id,
+  })
+
   const alertCount = orders.filter((o) => {
     const days = differenceInDays(new Date(), parseISO(o.entry_date))
     return days >= 4
   }).length
+
+  const remaining = workshop?.capacity ? Math.max(0, workshop.capacity - orders.length) : null
+  const isFull    = workshop?.capacity ? orders.length >= workshop.capacity : false
+
+  // Status distribution for mini donut
+  const statusDist = columns.map((col) => ({
+    name:  col.label,
+    value: orders.filter((o) => o.status === col.status).length,
+    color: col.chartColor,
+  })).filter((d) => d.value > 0)
 
   return (
     <div className="space-y-6">
@@ -174,10 +228,10 @@ export function AdminDashboardPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatsCard
           label="Carros na oficina"
-          value={String(orders.length)}
-          subtitle="em atendimento"
+          value={workshop?.capacity ? `${orders.length} / ${workshop.capacity}` : String(orders.length)}
+          subtitle={remaining !== null ? `${remaining} vaga${remaining !== 1 ? 's' : ''} disponível` : 'em atendimento'}
           icon={Car}
-          variant="default"
+          variant={isFull ? 'accent' : 'default'}
         />
         <StatsCard
           label="Aguard. aprovação"
@@ -200,6 +254,115 @@ export function AdminDashboardPage() {
           icon={AlertTriangle}
           variant={alertCount > 0 ? 'accent' : 'default'}
         />
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Revenue trend */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Tendência de receita</CardTitle>
+            <p className="text-xs text-muted-foreground">Últimos 6 meses</p>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[160px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={revenueHistory ?? []}
+                  margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#00A3E0" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#00A3E0" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11, fill: '#888' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
+                    tick={{ fontSize: 11, fill: '#888' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={52}
+                  />
+                  <RTooltip content={<RevenueTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#00A3E0"
+                    strokeWidth={2}
+                    fill="url(#areaGrad)"
+                    dot={{ fill: '#00A3E0', r: 3, strokeWidth: 0 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Status donut */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Status atual</CardTitle>
+            <p className="text-xs text-muted-foreground">{orders.length} veículo{orders.length !== 1 ? 's' : ''} na oficina</p>
+          </CardHeader>
+          <CardContent>
+            {statusDist.length === 0 ? (
+              <div className="flex h-[160px] items-center justify-center">
+                <p className="text-sm text-muted-foreground">Nenhum veículo</p>
+              </div>
+            ) : (
+              <div className="h-[160px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusDist}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={44}
+                      outerRadius={65}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {statusDist.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} strokeWidth={0} />
+                      ))}
+                    </Pie>
+                    <RTooltip
+                      formatter={(v, name) => [`${v} veículo${Number(v) !== 1 ? 's' : ''}`, name]}
+                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {/* Legend */}
+            <div className="mt-1 space-y-1">
+              {columns.map((col) => {
+                const count = orders.filter((o) => o.status === col.status).length
+                if (count === 0) return null
+                return (
+                  <div key={col.status} className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="h-2 w-2 rounded-full" style={{ background: col.chartColor }} />
+                      {col.label}
+                    </span>
+                    <span className="font-semibold text-foreground">{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+            {workshop?.capacity && (
+              <CapacityBar current={orders.length} capacity={workshop.capacity} />
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Kanban */}
