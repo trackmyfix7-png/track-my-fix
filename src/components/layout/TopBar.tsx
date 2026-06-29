@@ -31,18 +31,33 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-white px-4 lg:px-6">
-      <button
-        onClick={onMenuClick}
-        className="lg:hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-        aria-label="Abrir menu"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
+      {/* Esquerda: hamburguer (mobile) + usuário */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label="Abrir menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
 
-      <div className="hidden lg:block" />
+        <div className="flex items-center gap-2.5">
+          <Avatar className="h-8 w-8 flex-shrink-0">
+            <AvatarFallback className="bg-brand-secondary text-white text-xs font-semibold">
+              {user ? getInitials(user.profile.full_name) : '?'}
+            </AvatarFallback>
+          </Avatar>
+          <div className="hidden sm:block">
+            <p className="text-sm font-semibold text-foreground leading-tight">
+              {user?.profile.full_name ?? roleLabel}
+            </p>
+            <p className="text-xs text-muted-foreground leading-tight">{roleLabel}</p>
+          </div>
+        </div>
+      </div>
 
-      <div className="flex items-center gap-2">
-        {/* Sino */}
+      {/* Direita: sino + configurações */}
+      <div className="flex items-center gap-1">
         <div className="relative">
           <Button variant="ghost" size="icon">
             <Bell className="h-4 w-4" />
@@ -53,31 +68,11 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             )}
           </Button>
         </div>
-
-        {/* Configurações */}
         <Button variant="ghost" size="icon" asChild>
           <Link to={settingsHref}>
             <Settings className="h-4 w-4" />
           </Link>
         </Button>
-
-        {/* Separador */}
-        <div className="mx-1 h-6 w-px bg-border" />
-
-        {/* Usuário */}
-        <div className="flex items-center gap-2.5">
-          <div className="hidden sm:block text-right">
-            <p className="text-sm font-semibold text-foreground leading-tight">
-              {user?.profile.full_name ?? roleLabel}
-            </p>
-            <p className="text-xs text-muted-foreground leading-tight">{roleLabel}</p>
-          </div>
-          <Avatar className="h-8 w-8 flex-shrink-0">
-            <AvatarFallback className="bg-brand-secondary text-white text-xs font-semibold">
-              {user ? getInitials(user.profile.full_name) : '?'}
-            </AvatarFallback>
-          </Avatar>
-        </div>
       </div>
     </header>
   )
