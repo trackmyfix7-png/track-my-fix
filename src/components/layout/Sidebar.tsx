@@ -38,9 +38,9 @@ const employeeNavItems: NavItem[] = [
   { label: 'Dashboard',     href: '/funcionario/dashboard',  icon: LayoutDashboard },
   { label: 'Veículos',      href: '/funcionario/veiculos',   icon: Car             },
   { label: 'Orçamentos',    href: '/funcionario/orcamentos', icon: FileText, badgeKey: 'budgets' },
-  { label: 'Serviços',      href: '/funcionario/servicos',   icon: Wrench, disabled: true },
-  { label: 'Financeiro',    href: '#',                       icon: Receipt, disabled: true },
-  { label: 'Configurações', href: '#',                       icon: Settings, disabled: true },
+  { label: 'Serviços',      href: '/funcionario/servicos',        icon: Wrench, disabled: true },
+  { label: 'Financeiro',    href: '#',                            icon: Receipt, disabled: true },
+  { label: 'Configurações', href: '/funcionario/configuracoes',   icon: Settings },
 ]
 
 function useSidebarBadges() {

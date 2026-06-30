@@ -5,15 +5,10 @@ import {
   createEmployee,
   updateEmployee,
   deleteEmployee,
-  fetchEmployeeTrainings,
-  createTraining,
-  deleteTraining,
   type CreateEmployeePayload,
-  type CreateTrainingPayload,
 } from '../services/admin-employees-hr.service'
 
-const EMP_KEY  = (wid?: string) => ['admin', 'employees-hr', wid]
-const TRAIN_KEY = (eid: string)  => ['admin', 'trainings', eid]
+const EMP_KEY = (wid?: string) => ['admin', 'employees-hr', wid]
 
 export function useEmployeesHR() {
   const { data: workshop } = useWorkshop()
@@ -49,38 +44,5 @@ export function useDeleteEmployee() {
   return useMutation({
     mutationFn: (id: string) => deleteEmployee(id),
     onSuccess:  () => qc.invalidateQueries({ queryKey: EMP_KEY(workshop?.id) }),
-  })
-}
-
-export function useEmployeeTrainings(employeeId: string | null) {
-  return useQuery({
-    queryKey: TRAIN_KEY(employeeId ?? ''),
-    queryFn:  () => fetchEmployeeTrainings(employeeId!),
-    enabled:  !!employeeId,
-  })
-}
-
-export function useCreateTraining(employeeId: string) {
-  const qc = useQueryClient()
-  const { data: workshop } = useWorkshop()
-  return useMutation({
-    mutationFn: (payload: CreateTrainingPayload) =>
-      createTraining(employeeId, workshop!.id, payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TRAIN_KEY(employeeId) })
-      qc.invalidateQueries({ queryKey: EMP_KEY(workshop?.id) })
-    },
-  })
-}
-
-export function useDeleteTraining(employeeId: string) {
-  const qc = useQueryClient()
-  const { data: workshop } = useWorkshop()
-  return useMutation({
-    mutationFn: (id: string) => deleteTraining(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TRAIN_KEY(employeeId) })
-      qc.invalidateQueries({ queryKey: EMP_KEY(workshop?.id) })
-    },
   })
 }

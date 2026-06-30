@@ -25,6 +25,7 @@ import { FuncionarioOrdensPage } from '@/features/employee/pages/FuncionarioOrde
 import { FuncionarioOrdemDetailPage } from '@/features/employee/pages/FuncionarioOrdemDetailPage'
 import { FuncionarioVeiculosPage } from '@/features/employee/pages/FuncionarioVeiculosPage'
 import { FuncionarioOrcamentosPage } from '@/features/employee/pages/FuncionarioOrcamentosPage'
+import { FuncionarioConfiguracoesPage } from '@/features/employee/pages/FuncionarioConfiguracoesPage'
 import { AdminServicosPage } from '@/features/admin/servicos/pages/AdminServicosPage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { VehiclesPage } from '@/features/vehicles/pages/VehiclesPage'
@@ -175,7 +176,8 @@ const router = createBrowserRouter([
       { path: '/funcionario/ordens',         element: <FuncionarioOrdensPage /> },
       { path: '/funcionario/ordens/:id',     element: <FuncionarioOrdemDetailPage /> },
       { path: '/funcionario/veiculos',       element: <FuncionarioVeiculosPage /> },
-      { path: '/funcionario/orcamentos',     element: <FuncionarioOrcamentosPage /> },
+      { path: '/funcionario/orcamentos',      element: <FuncionarioOrcamentosPage /> },
+      { path: '/funcionario/configuracoes',  element: <FuncionarioConfiguracoesPage /> },
     ],
   },
 

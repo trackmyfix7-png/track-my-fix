@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useWorkshop, useUpdateWorkshop } from '../hooks/useWorkshop'
+import { maskPhone } from '@/lib/utils'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { LoadingState } from '@/components/shared/LoadingState'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,7 +30,7 @@ function WorkshopDataCard() {
   const { mutateAsync: updateWorkshop, isPending } = useUpdateWorkshop()
   const [editing, setEditing] = useState(false)
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<EditFormData>({
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<EditFormData>({
     resolver: zodResolver(editSchema),
     values: workshop
       ? {
@@ -83,7 +84,11 @@ function WorkshopDataCard() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Telefone</Label>
-                <Input {...register('phone')} placeholder="(11) 99999-9999" />
+                <Input
+                  {...register('phone')}
+                  placeholder="(11) 99999-9999"
+                  onChange={(e) => setValue('phone', maskPhone(e.target.value))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>CNPJ</Label>

@@ -7,6 +7,7 @@ export interface EmployeeRow {
   employee: {
     id: string
     full_name: string
+    email: string | null
     phone: string | null
     avatar_url: string | null
   }
@@ -17,7 +18,7 @@ export async function fetchWorkshopEmployees(workshopId: string): Promise<Employ
     .from('workshop_employees')
     .select(`
       id, employee_id, linked_at,
-      employee:profiles!employee_id(id, full_name, phone, avatar_url)
+      employee:profiles!employee_id(id, full_name, email, phone, avatar_url)
     `)
     .eq('workshop_id', workshopId)
     .order('linked_at', { ascending: false })
