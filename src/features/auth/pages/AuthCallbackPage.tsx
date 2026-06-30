@@ -114,9 +114,9 @@ export function AuthCallbackPage() {
             navigate('/sem-acesso', { replace: true })
           }
         })
-    } else if (!isLoading) {
-      navigate('/login', { replace: true })
     }
+    // Se !user && !isLoading: aguarda o SIGNED_IN disparar (troca de código OAuth ainda em andamento).
+    // O timeout de 15s exibe erro se nada acontecer.
   }, [user, isLoading, role, navigate])
 
   if (hasError) {
