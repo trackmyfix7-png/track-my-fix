@@ -523,11 +523,11 @@ function PortalAccessList() {
             <div key={emp.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 group">
               <Avatar className="h-7 w-7 flex-shrink-0">
                 <AvatarFallback className="bg-brand-secondary/20 text-brand-secondary text-[10px] font-semibold">
-                  {getInitials(emp.employee.full_name)}
+                  {getInitials(emp.employee?.full_name ?? '')}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{emp.employee.full_name}</p>
+                <p className="text-xs font-medium truncate">{emp.employee?.full_name ?? '(sem nome)'}</p>
                 <p className="text-[10px] text-muted-foreground">
                   Desde {format(parseISO(emp.linked_at), "d 'de' MMM", { locale: ptBR })}
                 </p>
