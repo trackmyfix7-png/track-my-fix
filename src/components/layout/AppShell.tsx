@@ -18,7 +18,7 @@ export function AppShell({ children }: AppShellProps) {
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-5xl px-4 py-6 lg:px-6">{children}</div>
+          <div className="px-4 py-6 lg:px-8">{children}</div>
         </main>
       </div>
     </div>

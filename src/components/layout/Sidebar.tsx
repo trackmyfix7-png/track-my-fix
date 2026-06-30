@@ -35,8 +35,12 @@ const adminNavItems: NavItem[] = [
 ]
 
 const employeeNavItems: NavItem[] = [
-  { label: 'Ordens',    href: '/funcionario/ordens',   icon: LayoutDashboard },
-  { label: 'Veículos',  href: '/funcionario/veiculos', icon: Car             },
+  { label: 'Dashboard',     href: '/funcionario/dashboard',  icon: LayoutDashboard },
+  { label: 'Veículos',      href: '/funcionario/veiculos',   icon: Car             },
+  { label: 'Orçamentos',    href: '/funcionario/orcamentos', icon: FileText, badgeKey: 'budgets' },
+  { label: 'Serviços',      href: '/funcionario/servicos',   icon: Wrench, disabled: true },
+  { label: 'Financeiro',    href: '#',                       icon: Receipt, disabled: true },
+  { label: 'Configurações', href: '#',                       icon: Settings, disabled: true },
 ]
 
 function useSidebarBadges() {

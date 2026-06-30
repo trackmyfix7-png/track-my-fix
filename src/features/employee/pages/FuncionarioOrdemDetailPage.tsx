@@ -106,7 +106,7 @@ export function FuncionarioOrdemDetailPage() {
         description={`Placa ${v.plate}`}
         actions={
           <Button variant="outline" size="sm" asChild>
-            <Link to="/funcionario/ordens">
+            <Link to="/funcionario/dashboard">
               <ArrowLeft className="h-4 w-4" />
               Voltar
             </Link>

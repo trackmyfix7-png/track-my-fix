@@ -20,9 +20,11 @@ import { AdminVeiculosPage } from '@/features/admin/veiculos/pages/AdminVeiculos
 import { AdminVeiculoNovoPage } from '@/features/admin/veiculos/pages/AdminVeiculoNovoPage'
 import { AdminVeiculoDetailPage } from '@/features/admin/veiculos/pages/AdminVeiculoDetailPage'
 import { AdminFuncionariosPage } from '@/features/admin/funcionarios/pages/AdminFuncionariosPage'
+import { FuncionarioDashboardPage } from '@/features/employee/pages/FuncionarioDashboardPage'
 import { FuncionarioOrdensPage } from '@/features/employee/pages/FuncionarioOrdensPage'
 import { FuncionarioOrdemDetailPage } from '@/features/employee/pages/FuncionarioOrdemDetailPage'
 import { FuncionarioVeiculosPage } from '@/features/employee/pages/FuncionarioVeiculosPage'
+import { FuncionarioOrcamentosPage } from '@/features/employee/pages/FuncionarioOrcamentosPage'
 import { AdminServicosPage } from '@/features/admin/servicos/pages/AdminServicosPage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { VehiclesPage } from '@/features/vehicles/pages/VehiclesPage'
@@ -37,7 +39,7 @@ function HomeRedirect() {
   if (isLoading) return <LoadingState className="h-screen" />
   if (!isAuthenticated) return <Navigate to="/login" replace />
   if (role === 'admin')    return <Navigate to="/admin/dashboard"     replace />
-  if (role === 'employee') return <Navigate to="/funcionario/ordens"  replace />
+  if (role === 'employee') return <Navigate to="/funcionario/dashboard" replace />
   return <Navigate to="/dashboard" replace />
 }
 
@@ -48,7 +50,7 @@ function PublicLayout() {
   if (isAuthenticated) {
     const dest =
       role === 'admin'    ? '/admin/dashboard' :
-      role === 'employee' ? '/funcionario/ordens' :
+      role === 'employee' ? '/funcionario/dashboard' :
       '/dashboard'
     return <Navigate to={dest} replace />
   }
@@ -60,7 +62,8 @@ function ClientLayout() {
   const { isAuthenticated, isLoading, role } = useAuthContext()
   if (isLoading) return <LoadingState className="h-screen" />
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (role === 'admin') return <Navigate to="/admin/dashboard" replace />
+  if (role === 'admin')    return <Navigate to="/admin/dashboard"      replace />
+  if (role === 'employee') return <Navigate to="/funcionario/dashboard" replace />
   return (
     <AppShell>
       <Outlet />
@@ -167,10 +170,12 @@ const router = createBrowserRouter([
   {
     element: <EmployeeLayout />,
     children: [
-      { path: '/funcionario',               element: <Navigate to="/funcionario/ordens" replace /> },
-      { path: '/funcionario/ordens',        element: <FuncionarioOrdensPage /> },
-      { path: '/funcionario/ordens/:id',    element: <FuncionarioOrdemDetailPage /> },
-      { path: '/funcionario/veiculos',      element: <FuncionarioVeiculosPage /> },
+      { path: '/funcionario',                element: <Navigate to="/funcionario/dashboard" replace /> },
+      { path: '/funcionario/dashboard',      element: <FuncionarioDashboardPage /> },
+      { path: '/funcionario/ordens',         element: <FuncionarioOrdensPage /> },
+      { path: '/funcionario/ordens/:id',     element: <FuncionarioOrdemDetailPage /> },
+      { path: '/funcionario/veiculos',       element: <FuncionarioVeiculosPage /> },
+      { path: '/funcionario/orcamentos',     element: <FuncionarioOrcamentosPage /> },
     ],
   },
 

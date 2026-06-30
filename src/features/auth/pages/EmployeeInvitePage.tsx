@@ -20,7 +20,7 @@ export function EmployeeInvitePage() {
   useEffect(() => {
     if (isAuthenticated) {
       if (role === 'employee') {
-        navigate('/funcionario/ordens', { replace: true })
+        navigate('/funcionario/dashboard', { replace: true })
       } else if (role === 'admin') {
         navigate('/admin/dashboard', { replace: true })
       }

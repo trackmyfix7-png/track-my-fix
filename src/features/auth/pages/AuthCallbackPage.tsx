@@ -50,7 +50,7 @@ export function AuthCallbackPage() {
 
       // 3. Já é funcionário
       if (role === 'employee') {
-        navigate('/funcionario/ordens', { replace: true })
+        navigate('/funcionario/dashboard', { replace: true })
         return
       }
 
@@ -66,7 +66,7 @@ export function AuthCallbackPage() {
               setHasError(true)
             } else {
               // Hard navigation para recarregar AuthContext com role=employee
-              window.location.replace('/funcionario/ordens')
+              window.location.replace('/funcionario/dashboard')
             }
           })
         return

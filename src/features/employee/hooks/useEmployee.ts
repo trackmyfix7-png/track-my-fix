@@ -6,6 +6,10 @@ import {
   fetchOrderDetail,
   updateOrderStatus,
 } from '@/features/admin/veiculos/services/admin-vehicles.service'
+import {
+  fetchPendingServiceRequests,
+  fetchWorkshopBudgets,
+} from '@/features/admin/orcamentos/services/admin-budgets.service'
 import type { ServiceOrderStatus } from '@/types/database'
 
 // ─── Workshop do funcionário ──────────────────────────────────────────────────
@@ -49,6 +53,28 @@ export function useEmployeeOrderDetail(orderId: string) {
     queryKey: ['employee', 'order', orderId],
     queryFn:  () => fetchOrderDetail(orderId),
     enabled:  !!orderId,
+  })
+}
+
+// ─── Atualizar status ─────────────────────────────────────────────────────────
+
+// ─── Orçamentos (somente leitura) ─────────────────────────────────────────────
+
+export function useEmployeeServiceRequests() {
+  const { data: workshop } = useEmployeeWorkshop()
+  return useQuery({
+    queryKey: ['employee', 'service-requests', workshop?.id],
+    queryFn:  () => fetchPendingServiceRequests(workshop!.id),
+    enabled:  !!workshop?.id,
+  })
+}
+
+export function useEmployeeBudgets() {
+  const { data: workshop } = useEmployeeWorkshop()
+  return useQuery({
+    queryKey: ['employee', 'budgets', workshop?.id],
+    queryFn:  () => fetchWorkshopBudgets(workshop!.id),
+    enabled:  !!workshop?.id,
   })
 }
 

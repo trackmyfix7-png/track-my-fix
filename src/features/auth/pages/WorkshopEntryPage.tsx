@@ -22,7 +22,7 @@ export function WorkshopEntryPage() {
     if (isAuthenticated) {
       const dest =
         role === 'admin'    ? '/admin/dashboard' :
-        role === 'employee' ? '/funcionario/ordens' :
+        role === 'employee' ? '/funcionario/dashboard' :
         '/dashboard'
       navigate(dest, { replace: true })
     }
