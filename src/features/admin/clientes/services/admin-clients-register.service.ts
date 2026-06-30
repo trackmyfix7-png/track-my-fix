@@ -18,6 +18,7 @@ export type CreateClientPayload = {
   email?: string
   address?: string
   notes?: string
+  linked_user_id?: string
 }
 
 export async function fetchPreRegisteredClients(workshopId: string): Promise<PreRegisteredClient[]> {
@@ -36,12 +37,13 @@ export async function createClient(workshopId: string, payload: CreateClientPayl
   const { data, error } = await supabase
     .from('clients')
     .insert({
-      workshop_id: workshopId,
-      name:        payload.name,
-      phone:       payload.phone  || null,
-      email:       payload.email  || null,
-      address:     payload.address || null,
-      notes:       payload.notes  || null,
+      workshop_id:    workshopId,
+      name:           payload.name,
+      phone:          payload.phone  || null,
+      email:          payload.email  || null,
+      address:        payload.address || null,
+      notes:          payload.notes  || null,
+      linked_user_id: payload.linked_user_id || null,
     })
     .select()
     .single()
@@ -68,4 +70,15 @@ export async function updateClient(id: string, payload: Partial<CreateClientPayl
 export async function deleteClient(id: string): Promise<void> {
   const { error } = await supabase.from('clients').delete().eq('id', id)
   if (error) throw error
+}
+
+export async function fetchLinkedClients(workshopId: string): Promise<PreRegisteredClient[]> {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('workshop_id', workshopId)
+    .not('linked_user_id', 'is', null)
+    .order('name')
+  if (error) throw error
+  return data ?? []
 }

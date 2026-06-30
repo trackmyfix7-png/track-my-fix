@@ -1,20 +1,23 @@
-import { useState } from 'react'
-import { Search, Car, Copy, CheckCheck, Link, UserPlus, Pencil, Trash2, Mail, Phone, MapPin, FileText } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import {
+  Search, Car, Copy, CheckCheck, Link, UserPlus,
+  Pencil, Trash2, Mail, Phone, MapPin, FileText, ShieldCheck,
+} from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { LoadingState } from '@/components/shared/LoadingState'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
-import { getInitials } from '@/lib/utils'
+import { getInitials, maskPhone } from '@/lib/utils'
 import { useWorkshop } from '@/features/admin/settings/hooks/useWorkshop'
-import { useWorkshopClientsWithStats } from '../hooks/useAdminClients'
+import { useWorkshopClientsWithStats, useRevokeClientAccess } from '../hooks/useAdminClients'
 import {
   usePreRegisteredClients,
+  useLinkedClients,
   useCreateClient,
   useUpdateClient,
   useDeleteClient,
@@ -22,9 +25,9 @@ import {
 import type { WorkshopClientRow } from '../services/admin-clients.service'
 import type { PreRegisteredClient } from '../services/admin-clients-register.service'
 
-// ─── Card de link de convite ──────────────────────────────────────────────────
+// ─── Link de convite (compacto) ──────────────────────────────────────────────
 
-function ClientInviteLinkCard() {
+function InviteLinkBar() {
   const { data: workshop } = useWorkshop()
   const [copied, setCopied] = useState(false)
 
@@ -40,63 +43,77 @@ function ClientInviteLinkCard() {
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Link className="h-4 w-4 text-brand-secondary" />
-          Link de convite
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Compartilhe com o cliente para que ele acesse o portal pelo celular.
-        </p>
-        {inviteUrl ? (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
-            <span className="flex-1 truncate text-xs text-muted-foreground font-mono">{inviteUrl}</span>
-            <Button
-              size="sm"
-              variant={copied ? 'default' : 'outline'}
-              className="shrink-0 h-7 gap-1.5 text-xs"
-              onClick={handleCopy}
-            >
-              {copied
-                ? <><CheckCheck className="h-3.5 w-3.5" /> Copiado</>
-                : <><Copy className="h-3.5 w-3.5" /> Copiar</>}
-            </Button>
-          </div>
-        ) : (
-          <div className="h-9 animate-pulse rounded-md bg-muted" />
-        )}
-        <p className="text-xs text-muted-foreground">
-          Se o cliente já estiver pré-cadastrado aqui, o sistema vincula os dados automaticamente ao fazer login.
-        </p>
-      </CardContent>
-    </Card>
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+      <Link className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+      <p className="text-xs text-muted-foreground flex-1">
+        Link de convite para acesso ao portal
+      </p>
+      {inviteUrl ? (
+        <div className="flex items-center gap-2">
+          <span className="hidden sm:block truncate max-w-[280px] text-xs text-muted-foreground font-mono">
+            {inviteUrl}
+          </span>
+          <Button
+            size="sm"
+            variant={copied ? 'default' : 'outline'}
+            className="shrink-0 h-7 gap-1.5 text-xs"
+            onClick={handleCopy}
+          >
+            {copied ? (
+              <><CheckCheck className="h-3.5 w-3.5" /> Copiado</>
+            ) : (
+              <><Copy className="h-3.5 w-3.5" /> Copiar</>
+            )}
+          </Button>
+        </div>
+      ) : (
+        <div className="h-7 w-20 animate-pulse rounded-md bg-muted" />
+      )}
+    </div>
   )
 }
 
-// ─── Modal de cadastro de cliente ─────────────────────────────────────────────
+// ─── Modal de cadastro / edição ───────────────────────────────────────────────
 
 type ClientFormValues = { name: string; phone: string; email: string; address: string; notes: string }
 const EMPTY: ClientFormValues = { name: '', phone: '', email: '', address: '', notes: '' }
 
-function ClientFormModal({
-  open, onClose, initial,
-}: {
-  open: boolean
-  onClose: () => void
-  initial?: PreRegisteredClient
-}) {
-  const [form, setForm] = useState<ClientFormValues>(
-    initial
-      ? { name: initial.name, phone: initial.phone ?? '', email: initial.email ?? '',
-          address: initial.address ?? '', notes: initial.notes ?? '' }
-      : EMPTY,
-  )
+type ModalState =
+  | { kind: 'closed' }
+  | { kind: 'create' }
+  | { kind: 'edit'; record: PreRegisteredClient }
+  | { kind: 'fromPortal'; prefill: { name: string; phone: string; email: string }; linkedUserId: string }
 
-  const create = useCreateClient()
-  const update = useUpdateClient()
+function ClientFormModal({
+  state, onClose,
+}: {
+  state:   Exclude<ModalState, { kind: 'closed' }>
+  onClose: () => void
+}) {
+  const initial    = state.kind === 'edit' ? state.record : null
+  const prefill    = state.kind === 'fromPortal' ? state.prefill : null
+  const linkedUser = state.kind === 'fromPortal' ? state.linkedUserId : null
+
+  const [form, setForm] = useState<ClientFormValues>(() => {
+    if (initial) return {
+      name:    initial.name,
+      phone:   maskPhone(initial.phone ?? ''),
+      email:   initial.email   ?? '',
+      address: initial.address ?? '',
+      notes:   initial.notes   ?? '',
+    }
+    if (prefill) return {
+      name:    prefill.name,
+      phone:   maskPhone(prefill.phone ?? ''),
+      email:   prefill.email,
+      address: '',
+      notes:   '',
+    }
+    return EMPTY
+  })
+
+  const create    = useCreateClient()
+  const update    = useUpdateClient()
   const isPending = create.isPending || update.isPending
 
   function set(field: keyof ClientFormValues, value: string) {
@@ -105,43 +122,48 @@ function ClientFormModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name.trim()) return
+    if (!form.name.trim() || !form.email.trim()) return
     const payload = {
       name:    form.name.trim(),
       phone:   form.phone.trim()   || undefined,
-      email:   form.email.trim()   || undefined,
+      email:   form.email.trim(),
       address: form.address.trim() || undefined,
       notes:   form.notes.trim()   || undefined,
     }
     if (initial) {
       await update.mutateAsync({ id: initial.id, ...payload })
     } else {
-      await create.mutateAsync(payload)
+      await create.mutateAsync({ ...payload, linked_user_id: linkedUser ?? undefined })
     }
     onClose()
   }
 
+  const title = initial
+    ? 'Editar cliente'
+    : linkedUser
+    ? 'Registrar cliente'
+    : 'Adicionar cliente'
+
+  const subtitle = initial
+    ? 'Atualize os dados do cadastro'
+    : linkedUser
+    ? 'Crie um cadastro para este cliente do portal'
+    : 'Pré-cadastre um cliente na oficina'
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
-        {/* Cabeçalho */}
         <div className="flex items-center gap-4 border-b border-border px-6 py-5">
           <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-primary/10">
             <UserPlus className="h-5 w-5 text-brand-primary" />
           </div>
           <div>
-            <DialogTitle className="text-base">
-              {initial ? 'Editar cliente' : 'Novo cliente'}
-            </DialogTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {initial ? 'Atualize os dados do cadastro' : 'Pré-cadastre um cliente na oficina'}
-            </p>
+            <DialogTitle className="text-base">{title}</DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
           </div>
         </div>
 
-        {/* Formulário */}
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* Nome */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Nome completo <span className="text-brand-accent normal-case font-normal">*</span>
@@ -155,52 +177,86 @@ function ClientFormModal({
             />
           </div>
 
-          {/* Telefone + E-mail */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <Phone className="h-3 w-3" /> Telefone
               </label>
-              <Input placeholder="(11) 99999-0000" value={form.phone} onChange={(e) => set('phone', e.target.value)} className="h-10" />
+              <Input
+                placeholder="(11) 99999-0000"
+                value={form.phone}
+                onChange={(e) => set('phone', maskPhone(e.target.value))}
+                className="h-10"
+              />
             </div>
             <div className="space-y-1.5">
               <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <Mail className="h-3 w-3" /> E-mail
+                <Mail className="h-3 w-3" /> E-mail <span className="text-brand-accent normal-case font-normal">*</span>
               </label>
-              <Input type="email" placeholder="email@exemplo.com" value={form.email} onChange={(e) => set('email', e.target.value)} className="h-10" />
+              {linkedUser ? (
+                <div className="flex h-10 items-center rounded-md border border-border bg-muted/50 px-3 text-sm text-muted-foreground select-all">
+                  {form.email || '—'}
+                </div>
+              ) : (
+                <Input
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={form.email}
+                  onChange={(e) => set('email', e.target.value)}
+                  required
+                  className="h-10"
+                />
+              )}
             </div>
           </div>
 
-          {/* Endereço */}
           <div className="space-y-1.5">
             <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <MapPin className="h-3 w-3" /> Endereço
             </label>
-            <Input placeholder="Rua, número, bairro, cidade..." value={form.address} onChange={(e) => set('address', e.target.value)} className="h-10" />
+            <Input
+              placeholder="Rua, número, bairro, cidade..."
+              value={form.address}
+              onChange={(e) => set('address', e.target.value)}
+              className="h-10"
+            />
           </div>
 
-          {/* Observações */}
           <div className="space-y-1.5">
             <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <FileText className="h-3 w-3" /> Observações
             </label>
-            <Input placeholder="Notas internas..." value={form.notes} onChange={(e) => set('notes', e.target.value)} className="h-10" />
+            <Input
+              placeholder="Notas internas..."
+              value={form.notes}
+              onChange={(e) => set('notes', e.target.value)}
+              className="h-10"
+            />
           </div>
 
-          {/* Dica de vínculo automático */}
-          {form.email && (
+          {!initial && !linkedUser && form.email && (
             <div className="rounded-lg border border-brand-secondary/30 bg-brand-secondary/5 px-3 py-2.5">
               <p className="text-xs text-brand-primary/80">
-                Se este cliente usar o link de convite com <strong>{form.email}</strong>, o cadastro será vinculado automaticamente.
+                Quando este cliente acessar o portal com <strong>{form.email}</strong>, o cadastro será vinculado automaticamente.
               </p>
             </div>
           )}
 
-          {/* Botões */}
           <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" variant="accent" size="sm" disabled={!form.name.trim() || isPending}>
-              {isPending ? 'Salvando...' : initial ? 'Salvar alterações' : 'Adicionar cliente'}
+            <Button
+              type="submit"
+              variant="accent"
+              size="sm"
+              disabled={!form.name.trim() || !form.email.trim() || isPending}
+            >
+              {isPending
+                ? 'Salvando...'
+                : initial
+                ? 'Salvar alterações'
+                : linkedUser
+                ? 'Registrar'
+                : 'Adicionar cliente'}
             </Button>
           </div>
         </form>
@@ -209,9 +265,19 @@ function ClientFormModal({
   )
 }
 
-// ─── Linha de cliente com conta (auth) ───────────────────────────────────────
+// ─── Linha: cliente com acesso ao portal ─────────────────────────────────────
 
-function ClientRow({ client }: { client: WorkshopClientRow }) {
+function ActiveClientRow({
+  client, linkedRecord, onEdit, onRevoke, revoking,
+}: {
+  client:        WorkshopClientRow
+  linkedRecord?: PreRegisteredClient
+  onEdit:        () => void
+  onRevoke:      () => void
+  revoking:      boolean
+}) {
+  const subtitle = linkedRecord?.email ?? client.email ?? (client.phone ? maskPhone(client.phone) : null)
+
   return (
     <tr className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
       <td className="px-4 py-3">
@@ -222,25 +288,52 @@ function ClientRow({ client }: { client: WorkshopClientRow }) {
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-sm font-medium text-foreground">{client.full_name}</p>
-            {client.phone && <p className="text-xs text-muted-foreground">{client.phone}</p>}
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium text-foreground">{client.full_name}</p>
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-green-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-green-600">
+                <ShieldCheck className="h-2.5 w-2.5" />
+                Portal
+              </span>
+            </div>
+            {subtitle && (
+              <p className="text-xs text-muted-foreground">{subtitle}</p>
+            )}
           </div>
         </div>
       </td>
-      <td className="px-4 py-3 text-center">
-        <div className="flex items-center justify-center gap-1.5">
-          <Car className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-sm font-medium">{client.vehicles}</span>
+      <td className="px-4 py-3 text-sm text-muted-foreground text-center">
+        <div className="flex items-center justify-center gap-1">
+          <Car className="h-3.5 w-3.5" />
+          <span>{client.vehicles}</span>
         </div>
       </td>
-      <td className="px-4 py-3 text-center">
-        <span className="text-sm font-medium">{client.visits}</span>
+      <td className="px-4 py-3 text-sm text-muted-foreground text-center">
+        {client.visits}
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={onEdit}
+            className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label={linkedRecord ? 'Editar cadastro' : 'Registrar cliente'}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={onRevoke}
+            disabled={revoking}
+            className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
+            aria-label="Revogar acesso"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </td>
     </tr>
   )
 }
 
-// ─── Linha de cliente pré-cadastrado (sem conta ainda) ───────────────────────
+// ─── Linha: cliente pré-cadastrado (aguardando acesso) ───────────────────────
 
 function PreRegisteredRow({
   client, onEdit, onDelete, deleting,
@@ -260,32 +353,26 @@ function PreRegisteredRow({
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-sm font-medium text-foreground">{client.name}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              {client.phone && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Phone className="h-2.5 w-2.5" />{client.phone}
-                </span>
-              )}
-              {client.email && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Mail className="h-2.5 w-2.5" />{client.email}
-                </span>
-              )}
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium text-foreground">{client.name}</p>
+              <span className="inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
+                Aguardando
+              </span>
             </div>
+            {client.email && (
+              <p className="text-xs text-muted-foreground">{client.email}</p>
+            )}
           </div>
         </div>
       </td>
+      <td className="px-4 py-3 text-sm text-muted-foreground text-center">—</td>
+      <td className="px-4 py-3 text-sm text-muted-foreground text-center">—</td>
       <td className="px-4 py-3">
-        <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-          Aguardando acesso
-        </span>
-      </td>
-      <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-1">
           <button
             onClick={() => onEdit(client)}
             className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="Editar"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -293,6 +380,7 @@ function PreRegisteredRow({
             onClick={() => onDelete(client.id)}
             disabled={deleting}
             className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
+            aria-label="Remover"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -306,46 +394,70 @@ function PreRegisteredRow({
 
 export function AdminClientesPage() {
   const [search, setSearch] = useState('')
-  const [formOpen,   setFormOpen]   = useState(false)
-  const [editTarget, setEditTarget] = useState<PreRegisteredClient | null>(null)
+  const [modal, setModal]   = useState<ModalState>({ kind: 'closed' })
 
   const { data: clients = [],       isLoading: loadingAuth, isError, refetch } = useWorkshopClientsWithStats()
   const { data: preClients = [],    isLoading: loadingPre  } = usePreRegisteredClients()
+  const { data: linkedClients = [] }                         = useLinkedClients()
+
   const deleteClient = useDeleteClient()
+  const revoke       = useRevokeClientAccess()
+
+  // Map linked_user_id → clients record (portal clients que já têm cadastro)
+  const linkedMap = useMemo(
+    () => new Map(linkedClients.map((c) => [c.linked_user_id!, c])),
+    [linkedClients],
+  )
 
   if (loadingAuth || loadingPre) return <LoadingState />
   if (isError) return <ErrorState onRetry={refetch} />
 
-  const filtered = clients.filter((c) =>
-    c.full_name.toLowerCase().includes(search.toLowerCase())
+  const filteredActive = clients.filter((c) =>
+    c.full_name.toLowerCase().includes(search.toLowerCase()),
   )
+  const filteredPre = preClients.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase()),
+  )
+  const isEmpty = filteredActive.length === 0 && filteredPre.length === 0
 
   async function handleDelete(id: string) {
     if (!confirm('Remover este cliente do cadastro?')) return
     await deleteClient.mutateAsync(id)
   }
 
-  function openEdit(c: PreRegisteredClient) {
-    setEditTarget(c)
-    setFormOpen(true)
+  async function handleRevoke(clientId: string) {
+    if (!confirm('Revogar o acesso ao portal deste cliente?')) return
+    await revoke.mutateAsync(clientId)
   }
 
-  function closeForm() {
-    setFormOpen(false)
-    setEditTarget(null)
+  function handleActiveEdit(client: WorkshopClientRow) {
+    const existing = linkedMap.get(client.id)
+    if (existing) {
+      setModal({ kind: 'edit', record: existing })
+    } else {
+      setModal({
+        kind: 'fromPortal',
+        prefill: {
+          name:  client.full_name,
+          phone: client.phone ?? '',
+          email: client.email ?? '',
+        },
+        linkedUserId: client.id,
+      })
+    }
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Gestão de clientes"
-        description={`${clients.length} cliente${clients.length !== 1 ? 's' : ''} com acesso ao portal`}
+        title="Clientes"
+        description="Cadastro e acesso ao portal"
         actions={
           <Button
             variant="accent"
             size="sm"
             className="gap-2"
-            onClick={() => { setEditTarget(null); setFormOpen(true) }}
+            onClick={() => setModal({ kind: 'create' })}
           >
             <UserPlus className="h-4 w-4" />
             Adicionar cliente
@@ -353,114 +465,73 @@ export function AdminClientesPage() {
         }
       />
 
-      {/* Pills de resumo */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-white px-4 py-1.5">
-          <span className="text-xs text-muted-foreground">Com acesso</span>
-          <span className="text-sm font-bold text-brand-primary">{clients.length}</span>
-        </div>
-        {preClients.length > 0 && (
-          <div className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5">
-            <span className="text-xs text-amber-700">Pré-cadastrados</span>
-            <span className="text-sm font-bold text-amber-700">{preClients.length}</span>
+      <InviteLinkBar />
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <Search className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+            <Input
+              placeholder="Buscar cliente..."
+              className="h-8 border-0 p-0 text-sm shadow-none focus-visible:ring-0"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {(clients.length > 0 || preClients.length > 0) && (
+              <span className="text-xs text-muted-foreground shrink-0">
+                {clients.length + preClients.length} cliente{clients.length + preClients.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-
-        {/* Tabelas */}
-        <div className="lg:col-span-2 space-y-4">
-
-          {/* Clientes com conta */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <CardTitle className="text-base flex-1">Clientes com acesso ao portal</CardTitle>
-                <div className="relative w-52">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar..."
-                    className="pl-8 h-8 text-sm"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {filtered.length === 0 ? (
-                <EmptyState
-                  title={search ? 'Nenhum cliente encontrado' : 'Nenhum cliente com acesso ainda'}
-                  description={!search ? 'Compartilhe o link de convite ou adicione um cliente manualmente.' : undefined}
-                  className="py-8"
-                />
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/50">
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cliente</th>
-                        <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Veículos</th>
-                        <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Visitas</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((c) => <ClientRow key={c.id} client={c} />)}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Pré-cadastrados aguardando acesso */}
-          {preClients.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">
-                  Pré-cadastrados — aguardando acesso ao portal
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/50">
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cliente</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
-                        <th className="px-4 py-2.5" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preClients.map((c) => (
-                        <PreRegisteredRow
-                          key={c.id}
-                          client={c}
-                          onEdit={openEdit}
-                          onDelete={handleDelete}
-                          deleting={deleteClient.isPending}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+          {isEmpty ? (
+            <EmptyState
+              title={search ? 'Nenhum cliente encontrado' : 'Nenhum cliente no cadastro'}
+              description={!search ? 'Clique em "Adicionar cliente" para começar.' : undefined}
+              className="py-12"
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cliente</th>
+                    <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Veículos</th>
+                    <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Visitas</th>
+                    <th className="px-4 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredActive.map((c) => (
+                    <ActiveClientRow
+                      key={c.id}
+                      client={c}
+                      linkedRecord={linkedMap.get(c.id)}
+                      onEdit={() => handleActiveEdit(c)}
+                      onRevoke={() => handleRevoke(c.id)}
+                      revoking={revoke.isPending}
+                    />
+                  ))}
+                  {filteredPre.map((c) => (
+                    <PreRegisteredRow
+                      key={c.id}
+                      client={c}
+                      onEdit={(rec) => setModal({ kind: 'edit', record: rec })}
+                      onDelete={handleDelete}
+                      deleting={deleteClient.isPending}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Link de convite */}
-        <div className="lg:col-span-1">
-          <ClientInviteLinkCard />
-        </div>
-      </div>
-
-      {formOpen && (
+      {modal.kind !== 'closed' && (
         <ClientFormModal
-          open={formOpen}
-          onClose={closeForm}
-          initial={editTarget ?? undefined}
+          state={modal}
+          onClose={() => setModal({ kind: 'closed' })}
         />
       )}
     </div>
