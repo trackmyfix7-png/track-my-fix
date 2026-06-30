@@ -17,14 +17,16 @@ export async function fetchServices(query?: string): Promise<Service[]> {
     .from('services')
     .select('*')
     .eq('is_active', true)
+    .eq('visible_to_client', true)
     .order('name')
 
-  if (session?.user?.id) {
-    const workshopIds = await getClientWorkshopIds(session.user.id)
-    if (workshopIds.length > 0) {
-      q = q.in('workshop_id', workshopIds)
-    }
-  }
+  const workshopIds = session?.user?.id
+    ? await getClientWorkshopIds(session.user.id)
+    : []
+
+  if (workshopIds.length === 0) return []
+
+  q = q.in('workshop_id', workshopIds)
 
   if (query?.trim()) {
     q = q.or(`name.ilike.%${query}%,description.ilike.%${query}%`)
