@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Car, User, Clock, ClipboardList, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Car, User, Clock, ClipboardList, ChevronRight, CheckCircle2 } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -98,6 +98,12 @@ export function AdminVeiculoDetailPage() {
     await updateStatus.mutateAsync({ orderId, status: newStatus, notes: notes || null })
     setNewStatus('')
     setNotes('')
+  }
+
+  async function handleDelivery() {
+    if (!orderId) return
+    if (!confirm('Confirmar entrega do veículo? Isso encerrará a OS e registrará a data de saída.')) return
+    await updateStatus.mutateAsync({ orderId, status: 'delivered', notes: null })
   }
 
   return (
@@ -214,6 +220,29 @@ export function AdminVeiculoDetailPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-foreground">{order.problem_description}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Confirmação de entrega — destaque quando pronto */}
+          {order.status === 'ready' && (
+            <Card className="border-emerald-200 bg-emerald-50/60">
+              <CardContent className="flex items-center justify-between gap-4 pt-4">
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800">Veículo pronto para entrega</p>
+                  <p className="text-xs text-emerald-700/70 mt-0.5">
+                    Registra a saída e encerra a ordem de serviço
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
+                  onClick={handleDelivery}
+                  disabled={updateStatus.isPending}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {updateStatus.isPending ? 'Registrando...' : 'Confirmar entrega'}
+                </Button>
               </CardContent>
             </Card>
           )}

@@ -22,7 +22,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-async function fetchOrCreateProfile(userId: string, email: string): Promise<Profile> {
+async function fetchOrCreateProfile(userId: string, email: string, displayName?: string): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -32,9 +32,10 @@ async function fetchOrCreateProfile(userId: string, email: string): Promise<Prof
   if (!error) return data
 
   if (error.code === 'PGRST116') {
+    const fullName = displayName?.trim() || email.split('@')[0]
     const { data: created, error: createError } = await supabase
       .from('profiles')
-      .insert({ id: userId, full_name: email.split('@')[0], role: 'client' })
+      .insert({ id: userId, full_name: fullName, role: 'client' })
       .select()
       .single()
     if (createError) throw createError
@@ -42,21 +43,6 @@ async function fetchOrCreateProfile(userId: string, email: string): Promise<Prof
   }
 
   throw error
-}
-
-async function linkClientToWorkshop(clientId: string, workshopSlug: string): Promise<void> {
-  const { data: workshop } = await supabase
-    .from('workshops')
-    .select('id')
-    .eq('slug', workshopSlug)
-    .single()
-
-  if (!workshop) return
-
-  // upsert — ignora se o vínculo já existir
-  await supabase
-    .from('client_workshops')
-    .upsert({ client_id: clientId, workshop_id: workshop.id }, { onConflict: 'client_id,workshop_id' })
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -69,7 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'INITIAL_SESSION') {
           if (session?.user) {
             try {
-              const profile = await fetchOrCreateProfile(session.user.id, session.user.email ?? '')
+              const meta        = session.user.user_metadata
+              const displayName = meta?.full_name || meta?.name
+              const profile     = await fetchOrCreateProfile(session.user.id, session.user.email ?? '', displayName)
               setUser({ id: session.user.id, email: session.user.email ?? '', profile })
             } catch {
               setUser(null)
@@ -80,15 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (event === 'SIGNED_IN' && session?.user) {
           try {
-            const profile = await fetchOrCreateProfile(session.user.id, session.user.email ?? '')
-
-            // Se há slug pendente (cliente chegou via /acesso/:slug), cria o vínculo
-            const pendingSlug = sessionStorage.getItem('pendingWorkshopSlug')
-            if (pendingSlug && profile.role === 'client') {
-              await linkClientToWorkshop(session.user.id, pendingSlug)
-              sessionStorage.removeItem('pendingWorkshopSlug')
-            }
-
+            const meta        = session.user.user_metadata
+            const displayName = meta?.full_name || meta?.name
+            const profile     = await fetchOrCreateProfile(session.user.id, session.user.email ?? '', displayName)
+            // Vinculação de convites (pendingWorkshopSlug / pendingEmployeeSlug)
+            // é tratada exclusivamente pelo AuthCallbackPage para evitar processamento duplo
             setUser({ id: session.user.id, email: session.user.email ?? '', profile })
           } catch {
             setUser(null)
