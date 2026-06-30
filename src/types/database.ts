@@ -115,6 +115,7 @@ export interface ServiceOrder {
   entry_date: string
   exit_date: string | null
   problem_description: string | null
+  service_description: string | null
   workshop_notes: string | null
   created_at: string
   updated_at: string
@@ -253,4 +254,5 @@ export interface DashboardSummary {
   pendingBudgets: number
   pendingBudgetsAmount: number
   totalHistory: number
+  totalVisits: number
 }

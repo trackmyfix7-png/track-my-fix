@@ -30,7 +30,6 @@ export async function fetchWorkshopActiveOrders(workshopId: string): Promise<Wor
       )
     `)
     .eq('workshop_id', workshopId)
-    .neq('status', 'delivered')
     .order('entry_date', { ascending: false })
 
   if (error) throw error

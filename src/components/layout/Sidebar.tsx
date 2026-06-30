@@ -15,12 +15,11 @@ interface NavItem {
 }
 
 const clientNavItems: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Meus veículos', href: '/veiculos', icon: Car },
-  { label: 'Orçamentos', href: '/orcamentos', icon: FileText, badgeKey: 'budgets' },
-  { label: 'Faturas', href: '/faturas', icon: Receipt, disabled: true },
-  { label: 'Serviços', href: '/servicos', icon: Wrench },
-  { label: 'Notificações', href: '/notificacoes', icon: Bell, badgeKey: 'notifications', disabled: true },
+  { label: 'Meus veículos', href: '/dashboard',    icon: Car                                              },
+  { label: 'Orçamentos',    href: '/orcamentos',   icon: FileText, badgeKey: 'budgets'                   },
+  { label: 'Faturas',       href: '/faturas',      icon: Receipt,  disabled: true                        },
+  { label: 'Serviços',      href: '/servicos',     icon: Wrench                                          },
+  { label: 'Notificações',  href: '/notificacoes', icon: Bell,     badgeKey: 'notifications', disabled: true },
 ]
 
 const adminNavItems: NavItem[] = [
@@ -124,7 +123,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <span className="text-base font-bold text-white tracking-tight">TrackMyFix</span>
             </div>
             <p className="mt-0.5 text-[10px] text-white/50 pl-9 uppercase tracking-widest">
-              {role === 'client' ? 'Portal do cliente' : 'Portal da oficina'}
+              {role === 'client' ? 'Portal do cliente' : role === 'employee' ? 'Portal do funcionário' : 'Portal da oficina'}
             </p>
           </div>
           <button

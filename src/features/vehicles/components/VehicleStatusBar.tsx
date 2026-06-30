@@ -1,18 +1,17 @@
 import { cn } from '@/lib/utils'
 import type { ServiceOrderStatus } from '@/types/database'
 
-const steps: { key: ServiceOrderStatus; label: string }[] = [
-  { key: 'received', label: 'Recebido' },
-  { key: 'in_progress', label: 'Em processo' },
-  { key: 'ready', label: 'Pronto' },
-  { key: 'delivered', label: 'Entregue' },
+// Etapas visíveis ao cliente — awaiting_approval fica entre diagnóstico e em serviço
+const STEPS: { label: string; statuses: ServiceOrderStatus[] }[] = [
+  { label: 'Recebido',    statuses: ['received']          },
+  { label: 'Diagnóstico', statuses: ['diagnosis', 'awaiting_approval'] },
+  { label: 'Em serviço',  statuses: ['in_progress']       },
+  { label: 'Pronto',      statuses: ['ready']              },
+  { label: 'Entregue',    statuses: ['delivered']          },
 ]
 
-const statusIndex: Record<ServiceOrderStatus, number> = {
-  received: 0,
-  in_progress: 1,
-  ready: 2,
-  delivered: 3,
+function getStepIndex(status: ServiceOrderStatus): number {
+  return STEPS.findIndex((s) => s.statuses.includes(status))
 }
 
 interface VehicleStatusBarProps {
@@ -20,31 +19,33 @@ interface VehicleStatusBarProps {
 }
 
 export function VehicleStatusBar({ status }: VehicleStatusBarProps) {
-  const currentIndex = statusIndex[status]
+  const currentIndex = getStepIndex(status)
+  const progress     = currentIndex / (STEPS.length - 1)
 
   return (
-    <div className="relative">
-      {/* Connecting line */}
-      <div className="absolute top-3 left-0 right-0 h-0.5 bg-border mx-[10%]" />
+    <div className="relative pt-1">
+      {/* Trilha de fundo */}
+      <div className="absolute top-[11px] left-[16px] right-[16px] h-0.5 bg-border" />
+      {/* Trilha de progresso */}
       <div
-        className="absolute top-3 left-0 h-0.5 bg-brand-accent mx-[10%] transition-all duration-500"
-        style={{ width: `${(currentIndex / (steps.length - 1)) * 80}%` }}
+        className="absolute top-[11px] left-[16px] h-0.5 bg-brand-accent transition-all duration-700"
+        style={{ width: `calc(${progress * 100}% * ((100% - 32px) / 100%))` }}
       />
 
       <div className="relative flex justify-between">
-        {steps.map((step, i) => {
+        {STEPS.map((step, i) => {
           const isCompleted = i < currentIndex
-          const isCurrent = i === currentIndex
+          const isCurrent   = i === currentIndex
 
           return (
-            <div key={step.key} className="flex flex-col items-center gap-1.5 flex-1">
+            <div key={step.label} className="flex flex-col items-center gap-2">
               <div
                 className={cn(
-                  'h-6 w-6 rounded-full border-2 flex items-center justify-center z-10 transition-colors',
+                  'h-[22px] w-[22px] rounded-full border-2 flex items-center justify-center z-10 transition-all duration-300',
                   isCompleted
                     ? 'bg-brand-accent border-brand-accent'
                     : isCurrent
-                      ? 'bg-white border-brand-accent shadow-md shadow-brand-accent/30'
+                      ? 'bg-white border-brand-accent shadow-sm shadow-brand-accent/40'
                       : 'bg-white border-border'
                 )}
               >
@@ -53,19 +54,15 @@ export function VehicleStatusBar({ status }: VehicleStatusBarProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 ) : isCurrent ? (
-                  <div className="h-2 w-2 rounded-full bg-brand-accent" />
+                  <div className="h-[9px] w-[9px] rounded-full bg-brand-accent" />
                 ) : null}
               </div>
-              <span
-                className={cn(
-                  'text-[10px] text-center leading-tight',
-                  isCurrent
-                    ? 'font-semibold text-brand-accent'
-                    : isCompleted
-                      ? 'text-brand-primary font-medium'
-                      : 'text-muted-foreground'
-                )}
-              >
+              <span className={cn(
+                'text-[10px] font-medium text-center leading-tight whitespace-nowrap',
+                isCurrent   ? 'text-brand-accent font-semibold'  :
+                isCompleted ? 'text-foreground/70'                :
+                              'text-muted-foreground'
+              )}>
                 {step.label}
               </span>
             </div>

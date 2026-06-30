@@ -19,20 +19,21 @@ import type { WorkshopOrderRow } from '@/features/admin/veiculos/services/admin-
 // ─── Kanban config ────────────────────────────────────────────────────────────
 
 const columns: {
-  status: ServiceOrderStatus
-  label:  string
-  dot:    string
+  status:     ServiceOrderStatus
+  label:      string
+  dot:        string
   headerBg:   string
   cardBorder: string
   badgeBg:    string
   badgeText:  string
   chartColor: string
 }[] = [
-  { status: 'received',          label: 'Recebido',       dot: 'bg-gray-400',        headerBg: 'bg-gray-50',            cardBorder: 'border-l-gray-300',         badgeBg: 'bg-gray-100',          badgeText: 'text-gray-500',      chartColor: '#9ca3af' },
-  { status: 'diagnosis',         label: 'Diagnóstico',    dot: 'bg-brand-secondary', headerBg: 'bg-brand-secondary/10', cardBorder: 'border-l-brand-secondary',  badgeBg: 'bg-brand-secondary/10', badgeText: 'text-brand-secondary', chartColor: '#00A3E0' },
-  { status: 'awaiting_approval', label: 'Aguard. Aprov.', dot: 'bg-amber-500',       headerBg: 'bg-amber-50',           cardBorder: 'border-l-amber-400',        badgeBg: 'bg-amber-50',          badgeText: 'text-amber-600',     chartColor: '#f59e0b' },
-  { status: 'in_progress',       label: 'Em Serviço',     dot: 'bg-emerald-500',     headerBg: 'bg-emerald-50',         cardBorder: 'border-l-emerald-400',      badgeBg: 'bg-emerald-50',        badgeText: 'text-emerald-600',   chartColor: '#22c55e' },
-  { status: 'ready',             label: 'Pronto',         dot: 'bg-purple-500',      headerBg: 'bg-purple-50',          cardBorder: 'border-l-purple-400',       badgeBg: 'bg-purple-50',         badgeText: 'text-purple-600',    chartColor: '#a855f7' },
+  { status: 'received',          label: 'Recebido',       dot: 'bg-gray-400',        headerBg: 'bg-gray-50',            cardBorder: 'border-l-gray-300',        badgeBg: 'bg-gray-100',           badgeText: 'text-gray-500',        chartColor: '#9ca3af' },
+  { status: 'diagnosis',         label: 'Diagnóstico',    dot: 'bg-brand-secondary', headerBg: 'bg-brand-secondary/10', cardBorder: 'border-l-brand-secondary', badgeBg: 'bg-brand-secondary/10', badgeText: 'text-brand-secondary', chartColor: '#00A3E0' },
+  { status: 'awaiting_approval', label: 'Aguard. Aprov.', dot: 'bg-amber-500',       headerBg: 'bg-amber-50',           cardBorder: 'border-l-amber-400',       badgeBg: 'bg-amber-50',           badgeText: 'text-amber-600',       chartColor: '#f59e0b' },
+  { status: 'in_progress',       label: 'Em Serviço',     dot: 'bg-emerald-500',     headerBg: 'bg-emerald-50',         cardBorder: 'border-l-emerald-400',     badgeBg: 'bg-emerald-50',         badgeText: 'text-emerald-600',     chartColor: '#22c55e' },
+  { status: 'ready',             label: 'Pronto',         dot: 'bg-purple-500',      headerBg: 'bg-purple-50',          cardBorder: 'border-l-purple-400',      badgeBg: 'bg-purple-50',          badgeText: 'text-purple-600',      chartColor: '#a855f7' },
+  { status: 'delivered',         label: 'Entregue',       dot: 'bg-teal-500',        headerBg: 'bg-teal-50',            cardBorder: 'border-l-teal-400',        badgeBg: 'bg-teal-50',            badgeText: 'text-teal-600',        chartColor: '#14b8a6' },
 ]
 
 // ─── Period filter ────────────────────────────────────────────────────────────
@@ -50,7 +51,9 @@ function filterByPeriod(orders: WorkshopOrderRow[], period: Period): WorkshopOrd
   if (period === 'all') return orders
   const now = new Date()
   return orders.filter((o) => {
-    const date = parseISO(o.entry_date)
+    // Para entregues, filtra pelo exit_date (dia da entrega)
+    const dateStr = o.status === 'delivered' && (o as any).exit_date ? (o as any).exit_date : o.entry_date
+    const date    = parseISO(dateStr)
     if (period === 'today')  return isSameDay(date, now)
     if (period === '7d')     return isAfter(date, subDays(now, 7))
     if (period === 'month')  return isAfter(date, startOfMonth(now))
@@ -62,7 +65,7 @@ function filterByPeriod(orders: WorkshopOrderRow[], period: Period): WorkshopOrd
 
 function VehicleCard({ order, col }: { order: WorkshopOrderRow; col: typeof columns[number] }) {
   const daysIn   = differenceInDays(new Date(), parseISO(order.entry_date))
-  const hasAlert = daysIn >= 4
+  const hasAlert = order.status !== 'delivered' && daysIn >= 4
 
   return (
     <Link
@@ -88,10 +91,12 @@ function VehicleCard({ order, col }: { order: WorkshopOrderRow; col: typeof colu
         <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', col.badgeBg, col.badgeText)}>
           {col.label}
         </span>
-        <span className={cn('flex items-center gap-1 text-[10px] font-medium', hasAlert ? 'text-brand-accent' : 'text-muted-foreground')}>
-          <Clock className="h-3 w-3" />
-          {daysIn === 0 ? 'Hoje' : `${daysIn}d`}
-        </span>
+        {order.status !== 'delivered' && (
+          <span className={cn('flex items-center gap-1 text-[10px] font-medium', hasAlert ? 'text-brand-accent' : 'text-muted-foreground')}>
+            <Clock className="h-3 w-3" />
+            {daysIn === 0 ? 'Hoje' : `${daysIn}d`}
+          </span>
+        )}
       </div>
     </Link>
   )
@@ -139,13 +144,16 @@ export function AdminDashboardPage() {
     enabled:  !!workshop?.id,
   })
 
-  const alertCount = orders.filter((o) => {
-    const days = differenceInDays(new Date(), parseISO(o.entry_date))
-    return days >= 4
-  }).length
+  // Alertas apenas em OS ativas (não entregues)
+  const activeOrders  = orders.filter((o) => o.status !== 'delivered')
+  const alertedOrders = activeOrders.filter((o) => differenceInDays(new Date(), parseISO(o.entry_date)) >= 4)
+  const alertCount    = alertedOrders.length
+  const maxAlertDays  = alertedOrders.length > 0
+    ? Math.max(...alertedOrders.map((o) => differenceInDays(new Date(), parseISO(o.entry_date))))
+    : null
 
-  const remaining = workshop?.capacity ? Math.max(0, workshop.capacity - orders.length) : null
-  const isFull    = workshop?.capacity ? orders.length >= workshop.capacity : false
+  const remaining = workshop?.capacity ? Math.max(0, workshop.capacity - activeOrders.length) : null
+  const isFull    = workshop?.capacity ? activeOrders.length >= workshop.capacity : false
 
   const visibleOrders = filterByPeriod(orders, period)
 
@@ -160,7 +168,7 @@ export function AdminDashboardPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatsCard
           label="Carros na oficina"
-          value={workshop?.capacity ? `${orders.length} / ${workshop.capacity}` : String(orders.length)}
+          value={workshop?.capacity ? `${activeOrders.length} / ${workshop.capacity}` : String(activeOrders.length)}
           subtitle={remaining !== null ? `${remaining} vaga${remaining !== 1 ? 's' : ''} disponível` : 'em atendimento'}
           icon={Car}
           variant={isFull ? 'accent' : 'default'}
@@ -170,19 +178,22 @@ export function AdminDashboardPage() {
           value={String(stats?.pendingBudgets ?? '—')}
           subtitle="orçamentos pendentes"
           icon={Clock}
-          variant="accent"
+          variant={stats?.pendingBudgets ? 'accent' : 'default'}
         />
         <StatsCard
           label={`Faturado em ${format(new Date(), 'MMM', { locale: ptBR })}`}
           value={stats ? formatCurrency(stats.monthlyRevenue) : '—'}
-          subtitle="faturas pagas no mês"
+          subtitle={stats?.prevMonthRevenue
+            ? `vs ${format(new Date(new Date().setDate(0)), 'MMM', { locale: ptBR })}: ${formatCurrency(stats.prevMonthRevenue)}`
+            : 'faturas pagas no mês'}
           icon={DollarSign}
           variant="secondary"
+          trend={stats?.revenueChange != null ? { value: stats.revenueChange } : undefined}
         />
         <StatsCard
           label="Alertas de atraso"
           value={String(alertCount)}
-          subtitle="veículos há 4+ dias"
+          subtitle={maxAlertDays != null ? `maior: ${maxAlertDays} dias na oficina` : 'veículos há 4+ dias'}
           icon={AlertTriangle}
           variant={alertCount > 0 ? 'accent' : 'default'}
         />
@@ -200,7 +211,6 @@ export function AdminDashboardPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Period pills */}
             <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
               {periods.map((p) => (
                 <button
