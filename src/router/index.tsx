@@ -22,6 +22,7 @@ import { AdminVeiculoDetailPage } from '@/features/admin/veiculos/pages/AdminVei
 import { AdminFuncionariosPage } from '@/features/admin/funcionarios/pages/AdminFuncionariosPage'
 import { FuncionarioOrdensPage } from '@/features/employee/pages/FuncionarioOrdensPage'
 import { FuncionarioOrdemDetailPage } from '@/features/employee/pages/FuncionarioOrdemDetailPage'
+import { FuncionarioVeiculosPage } from '@/features/employee/pages/FuncionarioVeiculosPage'
 import { AdminServicosPage } from '@/features/admin/servicos/pages/AdminServicosPage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { VehiclesPage } from '@/features/vehicles/pages/VehiclesPage'
@@ -169,6 +170,7 @@ const router = createBrowserRouter([
       { path: '/funcionario',               element: <Navigate to="/funcionario/ordens" replace /> },
       { path: '/funcionario/ordens',        element: <FuncionarioOrdensPage /> },
       { path: '/funcionario/ordens/:id',    element: <FuncionarioOrdemDetailPage /> },
+      { path: '/funcionario/veiculos',      element: <FuncionarioVeiculosPage /> },
     ],
   },
 

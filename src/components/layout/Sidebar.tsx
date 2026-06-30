@@ -35,7 +35,8 @@ const adminNavItems: NavItem[] = [
 ]
 
 const employeeNavItems: NavItem[] = [
-  { label: 'Ordens em andamento', href: '/funcionario/ordens', icon: Car },
+  { label: 'Ordens',    href: '/funcionario/ordens',   icon: LayoutDashboard },
+  { label: 'Veículos',  href: '/funcionario/veiculos', icon: Car             },
 ]
 
 function useSidebarBadges() {
@@ -119,7 +120,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <span className="text-base font-bold text-white tracking-tight">TrackMyFix</span>
             </div>
             <p className="mt-0.5 text-[10px] text-white/50 pl-9 uppercase tracking-widest">
-              {role === 'admin' ? 'Portal da oficina' : role === 'employee' ? 'Portal do funcionário' : 'Portal do cliente'}
+              {role === 'client' ? 'Portal do cliente' : 'Portal da oficina'}
             </p>
           </div>
           <button
