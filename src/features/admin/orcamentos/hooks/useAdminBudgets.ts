@@ -4,7 +4,11 @@ import {
   fetchPendingServiceRequests,
   fetchClientVehicles,
   fetchWorkshopBudgets,
+  fetchDraftBudgets,
   createBudget,
+  createBudgets,
+  publishDraft,
+  returnDraft,
   type CreateBudgetPayload,
 } from '../services/admin-budgets.service'
 
@@ -34,6 +38,41 @@ export function useWorkshopBudgets() {
   })
 }
 
+export function useDraftBudgets() {
+  const { data: workshop } = useWorkshop()
+  return useQuery({
+    queryKey: ['admin', 'drafts', workshop?.id],
+    queryFn:  () => fetchDraftBudgets(workshop!.id),
+    enabled:  !!workshop?.id,
+  })
+}
+
+function invalidateAfterBudget(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['admin', 'budgets'] })
+  queryClient.invalidateQueries({ queryKey: ['admin', 'drafts'] })
+  queryClient.invalidateQueries({ queryKey: ['admin', 'service-requests'] })
+  queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard-stats'] })
+  queryClient.invalidateQueries({ queryKey: ['employee', 'my-drafts'] })
+}
+
+export function usePublishDraft() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ budgetId, serviceRequestId }: { budgetId: string; serviceRequestId: string | null }) =>
+      publishDraft(budgetId, serviceRequestId),
+    onSuccess: () => invalidateAfterBudget(queryClient),
+  })
+}
+
+export function useReturnDraft() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ budgetId, notes }: { budgetId: string; notes: string }) =>
+      returnDraft(budgetId, notes),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'drafts'] }),
+  })
+}
+
 export function useCreateBudget() {
   const queryClient = useQueryClient()
   const { data: workshop } = useWorkshop()
@@ -41,9 +80,17 @@ export function useCreateBudget() {
   return useMutation({
     mutationFn: (payload: Omit<CreateBudgetPayload, 'workshopId'>) =>
       createBudget({ ...payload, workshopId: workshop!.id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'budgets'] })
-      queryClient.invalidateQueries({ queryKey: ['admin', 'service-requests'] })
-    },
+    onSuccess: () => invalidateAfterBudget(queryClient),
+  })
+}
+
+export function useCreateBudgets() {
+  const queryClient = useQueryClient()
+  const { data: workshop } = useWorkshop()
+
+  return useMutation({
+    mutationFn: (payloads: Omit<CreateBudgetPayload, 'workshopId'>[]) =>
+      createBudgets(payloads, workshop!.id),
+    onSuccess: () => invalidateAfterBudget(queryClient),
   })
 }

@@ -11,8 +11,8 @@ export interface PendingRequest {
   category: string | null
   status: 'pending' | 'analyzing' | 'budget_created'
   created_at: string
-  vehicle: { id: string; brand: string; model: string; year: number; plate: string }
-  owner: { id: string; full_name: string; avatar_url: string | null }
+  vehicle: { id: string; brand: string; model: string; year: number; plate: string } | null
+  owner: { id: string; full_name: string; avatar_url: string | null } | null
 }
 
 export async function fetchPendingServiceRequests(workshopId: string): Promise<PendingRequest[]> {
@@ -64,6 +64,7 @@ export interface WorkshopBudgetRow {
   valid_until: string | null
   vehicle: { brand: string; model: string; year: number; plate: string }
   owner: { full_name: string } | null
+  service_request: { category: string | null } | null
 }
 
 export async function fetchWorkshopBudgets(workshopId: string): Promise<WorkshopBudgetRow[]> {
@@ -73,9 +74,11 @@ export async function fetchWorkshopBudgets(workshopId: string): Promise<Workshop
       id, budget_number, status, total_amount, issued_at, valid_until,
       vehicle:vehicles(brand, model, year, plate,
         owner:profiles!owner_id(full_name)
-      )
+      ),
+      service_request:service_requests(category)
     `)
     .eq('workshop_id', workshopId)
+    .eq('is_draft', false)
     .order('issued_at', { ascending: false })
     .limit(30)
 
@@ -85,6 +88,74 @@ export async function fetchWorkshopBudgets(workshopId: string): Promise<Workshop
     ...row,
     owner: row.vehicle?.owner ?? null,
   })) as WorkshopBudgetRow[]
+}
+
+// ─── Rascunhos de funcionários ────────────────────────────────────────────────
+
+export interface DraftBudgetRow {
+  id: string
+  budget_number: string
+  total_amount: number
+  issued_at: string
+  review_notes: string | null
+  service_request_id: string | null
+  vehicle: { brand: string; model: string; year: number; plate: string }
+  owner: { full_name: string } | null
+  service_request: { problem_description: string; category: string | null } | null
+  items: { description: string; category: string; quantity: number; unit_price: number; total_price: number }[]
+  creator: { full_name: string } | null
+}
+
+export async function fetchDraftBudgets(workshopId: string): Promise<DraftBudgetRow[]> {
+  const { data, error } = await supabase
+    .from('budgets')
+    .select(`
+      id, budget_number, total_amount, issued_at, review_notes, service_request_id,
+      vehicle:vehicles(brand, model, year, plate,
+        owner:profiles!owner_id(full_name)
+      ),
+      service_request:service_requests(problem_description, category),
+      items:budget_items(description, category, quantity, unit_price, total_price),
+      created_by:workshop_employees!created_by_employee_id(
+        employee:profiles!employee_id(full_name)
+      )
+    `)
+    .eq('workshop_id', workshopId)
+    .eq('is_draft', true)
+    .order('issued_at', { ascending: false })
+
+  if (error) throw error
+
+  return (data as any[]).map((row) => ({
+    ...row,
+    owner:   row.vehicle?.owner ?? null,
+    creator: row.created_by?.employee ?? null,
+  })) as DraftBudgetRow[]
+}
+
+export async function publishDraft(budgetId: string, serviceRequestId: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('budgets')
+    .update({ is_draft: false })
+    .eq('id', budgetId)
+
+  if (error) throw error
+
+  if (serviceRequestId) {
+    await supabase
+      .from('service_requests')
+      .update({ status: 'budget_created' })
+      .eq('id', serviceRequestId)
+  }
+}
+
+export async function returnDraft(budgetId: string, notes: string): Promise<void> {
+  const { error } = await supabase
+    .from('budgets')
+    .update({ review_notes: notes })
+    .eq('id', budgetId)
+
+  if (error) throw error
 }
 
 // ─── Criar orçamento ──────────────────────────────────────────────────────────
@@ -119,14 +190,15 @@ export async function createBudget(payload: CreateBudgetPayload): Promise<string
   const { data: budget, error: budgetError } = await supabase
     .from('budgets')
     .insert({
-      budget_number:   budgetNumber,
-      vehicle_id:      payload.vehicleId,
-      workshop_id:     payload.workshopId,
-      status:          'awaiting_approval',
-      total_amount:    totalAmount,
-      workshop_notes:  payload.notes    || null,
-      valid_until:     payload.validUntil || null,
-      issued_at:       new Date().toISOString(),
+      budget_number:      budgetNumber,
+      vehicle_id:         payload.vehicleId,
+      workshop_id:        payload.workshopId,
+      service_request_id: payload.serviceRequestId || null,
+      status:             'awaiting_approval',
+      total_amount:       totalAmount,
+      workshop_notes:     payload.notes    || null,
+      valid_until:        payload.validUntil || null,
+      issued_at:          new Date().toISOString(),
     })
     .select('id')
     .single()
@@ -153,4 +225,17 @@ export async function createBudget(payload: CreateBudgetPayload): Promise<string
   }
 
   return budget.id
+}
+
+// ─── Criar orçamento em lote (mesmos itens p/ várias solicitações) ────────────
+
+export async function createBudgets(
+  payloads: Omit<CreateBudgetPayload, 'workshopId'>[],
+  workshopId: string
+): Promise<string[]> {
+  const ids: string[] = []
+  for (const payload of payloads) {
+    ids.push(await createBudget({ ...payload, workshopId }))
+  }
+  return ids
 }

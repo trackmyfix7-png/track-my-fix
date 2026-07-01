@@ -4,6 +4,7 @@ export interface EmployeeRow {
   id: string
   employee_id: string
   linked_at: string
+  can_approve_budgets: boolean
   employee: {
     id: string
     full_name: string
@@ -17,7 +18,7 @@ export async function fetchWorkshopEmployees(workshopId: string): Promise<Employ
   const { data, error } = await supabase
     .from('workshop_employees')
     .select(`
-      id, employee_id, linked_at,
+      id, employee_id, linked_at, can_approve_budgets,
       employee:profiles!employee_id(id, full_name, email, phone, avatar_url)
     `)
     .eq('workshop_id', workshopId)
@@ -25,6 +26,15 @@ export async function fetchWorkshopEmployees(workshopId: string): Promise<Employ
 
   if (error) throw error
   return data as unknown as EmployeeRow[]
+}
+
+export async function toggleBudgetApproval(linkId: string, value: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('workshop_employees')
+    .update({ can_approve_budgets: value })
+    .eq('id', linkId)
+
+  if (error) throw error
 }
 
 export async function addEmployee(

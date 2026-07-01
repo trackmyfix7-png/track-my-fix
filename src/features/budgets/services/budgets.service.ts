@@ -1,12 +1,13 @@
 import { supabase } from '@/lib/supabase'
 import type { Budget } from '@/types/database'
 
-const BUDGET_SELECT = '*, vehicle:vehicles(*), items:budget_items(*)'
+const BUDGET_SELECT = '*, vehicle:vehicles(*), items:budget_items(*), service_request:service_requests(problem_description, category)'
 
 export async function fetchBudgets(): Promise<Budget[]> {
   const { data, error } = await supabase
     .from('budgets')
     .select(BUDGET_SELECT)
+    .eq('is_draft', false)
     .order('issued_at', { ascending: false })
 
   if (error) throw error
@@ -18,6 +19,7 @@ export async function fetchBudgetById(id: string): Promise<Budget | null> {
     .from('budgets')
     .select(BUDGET_SELECT)
     .eq('id', id)
+    .eq('is_draft', false)
     .single()
 
   if (error) {

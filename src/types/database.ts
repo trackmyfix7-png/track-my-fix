@@ -82,6 +82,7 @@ export interface WorkshopEmployee {
   employee_id: string
   workshop_id: string
   linked_at: string
+  can_approve_budgets: boolean
   employee?: Profile
   workshop?: Workshop
 }
@@ -161,17 +162,22 @@ export interface Budget {
   budget_number: string
   vehicle_id: string
   service_order_id: string | null
+  service_request_id: string | null
   workshop_id: string
   status: BudgetStatus
   total_amount: number
   valid_until: string | null
   workshop_notes: string | null
+  review_notes: string | null
+  is_draft: boolean
+  created_by_employee_id: string | null
   issued_at: string
   created_at: string
   updated_at: string
   vehicle?: Vehicle
   workshop?: Workshop
   items?: BudgetItem[]
+  service_request?: { problem_description: string; category: string | null } | null
 }
 
 // ─── Faturas ──────────────────────────────────────────────────────────────────

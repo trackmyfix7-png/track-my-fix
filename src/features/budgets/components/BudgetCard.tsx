@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ChevronRight, Car } from 'lucide-react'
 import type { Budget } from '@/types/database'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { BudgetStatusBadge } from '@/components/shared/StatusBadge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
@@ -33,6 +34,11 @@ export function BudgetCard({ budget }: BudgetCardProps) {
                     Orçamento {budget.budget_number}
                   </span>
                   <BudgetStatusBadge status={budget.status} />
+                  {budget.service_request?.category && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      {budget.service_request.category}
+                    </Badge>
+                  )}
                 </div>
                 <p className="mt-0.5 text-sm text-muted-foreground truncate">
                   {budget.vehicle

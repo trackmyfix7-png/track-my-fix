@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-interface LocationState { serviceName?: string; category?: string }
+interface LocationState { serviceId?: string; serviceName?: string; category?: string }
 
 export function ServiceRequestPage() {
   const navigate = useNavigate()

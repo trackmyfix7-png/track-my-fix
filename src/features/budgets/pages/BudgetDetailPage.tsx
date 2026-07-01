@@ -1,8 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Car, CheckCircle2, XCircle, Loader2, Building2 } from 'lucide-react'
+import { ArrowLeft, Car, CheckCircle2, XCircle, Loader2, Building2, Wrench } from 'lucide-react'
 import { useBudget, useApproveBudget, useRejectBudget } from '../hooks/useBudgets'
 import { BudgetItemsTable } from '../components/BudgetItemsTable'
 import { BudgetStatusBadge } from '@/components/shared/StatusBadge'
+import { Badge } from '@/components/ui/badge'
 import { LoadingState } from '@/components/shared/LoadingState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { Button } from '@/components/ui/button'
@@ -85,6 +86,28 @@ export function BudgetDetailPage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Items — main column */}
         <div className="lg:col-span-2 space-y-5">
+          {/* Solicitação de origem */}
+          {budget.service_request && (
+            <Card className="border-brand-secondary/30 bg-brand-secondary/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-brand-secondary flex items-center gap-2">
+                  <Wrench className="h-4 w-4" />
+                  Serviço solicitado
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {budget.service_request.category && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    {budget.service_request.category}
+                  </Badge>
+                )}
+                <p className="text-sm text-foreground leading-relaxed">
+                  {budget.service_request.problem_description}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">

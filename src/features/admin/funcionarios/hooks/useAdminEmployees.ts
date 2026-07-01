@@ -4,6 +4,7 @@ import {
   fetchWorkshopEmployees,
   addEmployee,
   removeEmployee,
+  toggleBudgetApproval,
 } from '../services/admin-employees.service'
 
 const KEY = (id?: string) => ['admin', 'employees', id]
@@ -34,5 +35,19 @@ export function useRemoveEmployee() {
   return useMutation({
     mutationFn: (linkId: string) => removeEmployee(linkId),
     onSuccess:  () => queryClient.invalidateQueries({ queryKey: KEY(workshop?.id) }),
+  })
+}
+
+export function useToggleBudgetApproval() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ linkId, value }: { linkId: string; value: boolean }) =>
+      toggleBudgetApproval(linkId, value),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'employees'] })
+      // Invalida o contexto do funcionário (mesmo browser/sessão de teste)
+      queryClient.invalidateQueries({ queryKey: ['employee', 'context'] })
+    },
   })
 }

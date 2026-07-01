@@ -145,7 +145,7 @@ export function ServicesPage() {
                   </div>
                   <Button variant="outline" size="sm"
                     onClick={() => navigate('/solicitar-orcamento', {
-                      state: { serviceName: service.name, category: service.category },
+                      state: { serviceId: service.id, serviceName: service.name, category: service.category },
                     })}
                   >
                     Solicitar
