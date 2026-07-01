@@ -64,7 +64,11 @@ export function ServiceRequestPage() {
   const mutation = useCreateServiceRequest()
 
   async function onSubmit(data: ServiceRequestFormData) {
-    await mutation.mutateAsync({ ...data, images })
+    await mutation.mutateAsync({
+      ...data,
+      images,
+      ...(prefill.serviceId ? { service_id: prefill.serviceId } : {}),
+    })
     setSubmitted(true)
   }
 

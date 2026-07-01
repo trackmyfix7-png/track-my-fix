@@ -5,6 +5,7 @@ export interface CreateServiceRequestPayload {
   vehicle_id: string
   category: string
   problem_description: string
+  service_id?: string
   images?: File[]
 }
 
@@ -49,6 +50,7 @@ export async function createServiceRequest(
       category:            payload.category,
       problem_description: payload.problem_description,
       workshop_id:         workshopId,
+      ...(payload.service_id ? { service_id: payload.service_id } : {}),
     })
     .select('*, vehicle:vehicles(*)')
     .single()

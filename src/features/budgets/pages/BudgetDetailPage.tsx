@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Car, CheckCircle2, XCircle, Loader2, Building2, Wrench } from 'lucide-react'
+import { ArrowLeft, Car, CheckCircle2, XCircle, Loader2, Building2, Wrench, ImageIcon, X } from 'lucide-react'
 import { useBudget, useApproveBudget, useRejectBudget } from '../hooks/useBudgets'
 import { BudgetItemsTable } from '../components/BudgetItemsTable'
 import { BudgetStatusBadge } from '@/components/shared/StatusBadge'
@@ -95,15 +96,52 @@ export function BudgetDetailPage() {
                   Serviço solicitado
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {budget.service_request.category && (
+              <CardContent className="space-y-3">
+                {budget.service_request.service ? (
+                  <div className="space-y-1">
+                    <p className="text-base font-semibold text-foreground">
+                      {budget.service_request.service.name}
+                    </p>
+                    {budget.service_request.service.description && (
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {budget.service_request.service.description}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-3 pt-1">
+                      {budget.service_request.service.estimated_time && (
+                        <span className="text-xs text-muted-foreground">
+                          Tempo estimado: <span className="font-medium text-foreground">{budget.service_request.service.estimated_time}</span>
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        Preço de referência: <span className="font-medium text-foreground">{formatCurrency(budget.service_request.service.base_price)}</span>
+                      </span>
+                    </div>
+                  </div>
+                ) : budget.service_request.category ? (
                   <Badge variant="secondary" className="text-[10px]">
                     {budget.service_request.category}
                   </Badge>
+                ) : null}
+                {budget.service_request.problem_description && (
+                  <div className={budget.service_request.service ? 'border-t border-brand-secondary/20 pt-3' : ''}>
+                    {budget.service_request.service && (
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Observações do cliente</p>
+                    )}
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {budget.service_request.problem_description}
+                    </p>
+                  </div>
                 )}
-                <p className="text-sm text-foreground leading-relaxed">
-                  {budget.service_request.problem_description}
-                </p>
+                {budget.service_request.images && budget.service_request.images.length > 0 && (
+                  <div className="border-t border-brand-secondary/20 pt-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      Fotos enviadas pelo cliente ({budget.service_request.images.length})
+                    </p>
+                    <ImageGallery images={budget.service_request.images} />
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -223,5 +261,47 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-sm font-medium text-foreground">{value}</p>
     </div>
+  )
+}
+
+function ImageGallery({ images }: { images: Array<{ id: string; url?: string | null }> }) {
+  const [lightbox, setLightbox] = useState<string | null>(null)
+
+  return (
+    <>
+      <div className="grid grid-cols-3 gap-2">
+        {images.map((img) =>
+          img.url ? (
+            <button
+              key={img.id}
+              onClick={() => setLightbox(img.url!)}
+              className="aspect-square overflow-hidden rounded-lg border border-border bg-muted hover:opacity-90 transition-opacity"
+            >
+              <img src={img.url} alt="" className="h-full w-full object-cover" />
+            </button>
+          ) : null
+        )}
+      </div>
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors"
+            onClick={() => setLightbox(null)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={lightbox}
+            alt=""
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
   )
 }

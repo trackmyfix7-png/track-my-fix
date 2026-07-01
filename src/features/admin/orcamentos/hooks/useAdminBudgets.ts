@@ -5,6 +5,7 @@ import {
   fetchClientVehicles,
   fetchWorkshopBudgets,
   fetchDraftBudgets,
+  fetchServiceById,
   createBudget,
   createBudgets,
   publishDraft,
@@ -18,6 +19,15 @@ export function usePendingServiceRequests() {
     queryKey: ['admin', 'service-requests', workshop?.id],
     queryFn:  () => fetchPendingServiceRequests(workshop!.id),
     enabled:  !!workshop?.id,
+  })
+}
+
+export function useServiceById(serviceId: string | null) {
+  return useQuery({
+    queryKey: ['service', serviceId],
+    queryFn:  () => fetchServiceById(serviceId!),
+    enabled:  !!serviceId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 

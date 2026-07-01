@@ -177,7 +177,13 @@ export interface Budget {
   vehicle?: Vehicle
   workshop?: Workshop
   items?: BudgetItem[]
-  service_request?: { problem_description: string; category: string | null } | null
+  service_request?: {
+    problem_description: string
+    category: string | null
+    service_id: string | null
+    service?: { name: string; description: string | null; estimated_time: string | null; base_price: number } | null
+    images?: Array<{ id: string; storage_path: string; url?: string | null }> | null
+  } | null
 }
 
 // ─── Faturas ──────────────────────────────────────────────────────────────────

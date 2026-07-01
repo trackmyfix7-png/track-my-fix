@@ -9,26 +9,85 @@ export interface PendingRequest {
   vehicle_id: string
   problem_description: string
   category: string | null
+  service_id: string | null
+  service_base_price: number | null
   status: 'pending' | 'analyzing' | 'budget_created'
   created_at: string
   vehicle: { id: string; brand: string; model: string; year: number; plate: string } | null
   owner: { id: string; full_name: string; avatar_url: string | null } | null
+  images: Array<{ id: string; storage_path: string; url?: string | null }> | null
+}
+
+export interface RequestService {
+  name: string
+  description: string | null
+  base_price: number
+}
+
+async function attachRequestImageUrls(requests: PendingRequest[]): Promise<PendingRequest[]> {
+  return Promise.all(
+    requests.map(async (req) => {
+      if (!req.images?.length) return req
+      const signed = await Promise.all(
+        req.images.map(async (img) => {
+          const { data } = await supabase.storage
+            .from('service-requests')
+            .createSignedUrl(img.storage_path, 3600)
+          return { ...img, url: data?.signedUrl ?? null }
+        })
+      )
+      return { ...req, images: signed }
+    })
+  )
 }
 
 export async function fetchPendingServiceRequests(workshopId: string): Promise<PendingRequest[]> {
   const { data, error } = await supabase
     .from('service_requests')
     .select(`
-      id, owner_id, vehicle_id, problem_description, category, status, created_at,
+      id, owner_id, vehicle_id, problem_description, category, service_id, status, created_at,
       vehicle:vehicles(id, brand, model, year, plate),
-      owner:profiles!owner_id(id, full_name, avatar_url)
+      owner:profiles!owner_id(id, full_name, avatar_url),
+      images:service_request_images!request_id(id, storage_path)
     `)
     .eq('workshop_id', workshopId)
     .in('status', ['pending', 'analyzing'])
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return data as unknown as PendingRequest[]
+
+  const raw = data as unknown as PendingRequest[]
+
+  // Batch-fetch base_price for all requests that have a linked catalog service
+  const serviceIds = [...new Set(raw.map((r) => r.service_id).filter(Boolean) as string[])]
+  let priceMap: Record<string, number> = {}
+  if (serviceIds.length > 0) {
+    const { data: prices } = await supabase
+      .from('services')
+      .select('id, base_price')
+      .in('id', serviceIds)
+    if (prices) {
+      priceMap = Object.fromEntries(prices.map((p: { id: string; base_price: number }) => [p.id, p.base_price]))
+    }
+  }
+
+  const withPrices = raw.map((r) => ({
+    ...r,
+    service_base_price: r.service_id ? (priceMap[r.service_id] ?? null) : null,
+  }))
+
+  return attachRequestImageUrls(withPrices)
+}
+
+export async function fetchServiceById(id: string): Promise<RequestService | null> {
+  const { data, error } = await supabase
+    .from('services')
+    .select('name, description, base_price')
+    .eq('id', id)
+    .single()
+
+  if (error) return null
+  return data
 }
 
 // ─── Veículos do cliente ──────────────────────────────────────────────────────
