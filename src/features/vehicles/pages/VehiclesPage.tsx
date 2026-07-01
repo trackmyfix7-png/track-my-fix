@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Car, FileText, DollarSign, Plus } from 'lucide-react'
+import { Car, FileText, DollarSign, Plus, Wrench } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatsCard } from '@/components/shared/StatsCard'
 import { LoadingState } from '@/components/shared/LoadingState'
@@ -18,7 +18,7 @@ export function VehiclesPage() {
   const [modalOpen, setModalOpen] = useState(false)
 
   const { data: vehicles, isLoading: lV, isError: eV, refetch } = useVehicles()
-  const { data: summary, isLoading: lS } = useDashboardSummary()
+  const { data: summary,      isLoading: lS } = useDashboardSummary()
   const { data: activeOrders, isLoading: lA } = useActiveServiceOrders()
   const { data: historyOrders, isLoading: lH } = useRecentHistory()
 
@@ -28,6 +28,9 @@ export function VehiclesPage() {
   function getActiveOrder(vehicleId: string) {
     return activeOrders?.find((o) => o.vehicle_id === vehicleId)
   }
+
+  const vehiclesInService = vehicles?.filter((v) => !!getActiveOrder(v.id)) ?? []
+  const otherVehicles     = vehicles?.filter((v) => !getActiveOrder(v.id)) ?? []
 
   return (
     <div className="space-y-6">
@@ -47,7 +50,7 @@ export function VehiclesPage() {
         <StatsCard
           label="Veículos ativos"
           value={String(summary?.activeVehicles ?? 0)}
-          subtitle="na sua garage"
+          subtitle="na sua garagem"
           icon={Car}
           variant="default"
         />
@@ -73,18 +76,45 @@ export function VehiclesPage() {
         />
       </div>
 
-      {/* Vehicle cards */}
-      {vehicles && vehicles.length > 0 ? (
-        <div className="space-y-4">
-          {vehicles.map((vehicle) => (
-            <VehicleCard
-              key={vehicle.id}
-              vehicle={vehicle}
-              activeOrder={getActiveOrder(vehicle.id)}
-            />
-          ))}
-        </div>
-      ) : (
+      {/* Na oficina agora */}
+      {vehiclesInService.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <Wrench className="h-3.5 w-3.5 text-brand-primary" />
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Na oficina agora ({vehiclesInService.length})
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {vehiclesInService.map((vehicle) => (
+              <VehicleCard
+                key={vehicle.id}
+                vehicle={vehicle}
+                activeOrder={getActiveOrder(vehicle.id)}
+                variant="active"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Minha garagem */}
+      {otherVehicles.length > 0 && (
+        <section>
+          {vehiclesInService.length > 0 && (
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Minha garagem
+            </h2>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {otherVehicles.map((vehicle) => (
+              <VehicleCard key={vehicle.id} vehicle={vehicle} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {vehicles?.length === 0 && (
         <Card>
           <CardContent className="py-2">
             <EmptyState
@@ -97,7 +127,7 @@ export function VehiclesPage() {
         </Card>
       )}
 
-      {/* History */}
+      {/* Histórico */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold text-brand-primary">Histórico</CardTitle>

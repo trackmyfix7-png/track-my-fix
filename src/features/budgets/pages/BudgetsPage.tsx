@@ -1,4 +1,4 @@
-import { FileText, Clock, Plus } from 'lucide-react'
+import { FileText, Clock, Plus, Bell } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { LoadingState } from '@/components/shared/LoadingState'
@@ -25,9 +25,7 @@ export function BudgetsPage() {
     (b) => b.status !== 'awaiting_approval' && b.status !== 'requested'
   ) ?? []
 
-  const hasAnything =
-    (requests?.length ?? 0) > 0 ||
-    (budgets?.length ?? 0) > 0
+  const hasAnything = (requests?.length ?? 0) > 0 || (budgets?.length ?? 0) > 0
 
   return (
     <div className="space-y-6">
@@ -57,6 +55,23 @@ export function BudgetsPage() {
       ) : (
         <div className="space-y-8">
 
+          {/* Orçamentos aguardando aprovação — prioridade máxima */}
+          {pendingBudgets.length > 0 && (
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <Bell className="h-3.5 w-3.5 text-brand-accent" />
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Aguardando sua resposta ({pendingBudgets.length})
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {pendingBudgets.map((b) => (
+                  <BudgetCard key={b.id} budget={b} highlight />
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Solicitações aguardando orçamento da oficina */}
           {requests && requests.length > 0 && (
             <section>
@@ -66,23 +81,9 @@ export function BudgetsPage() {
                   Aguardando orçamento da oficina ({requests.length})
                 </h2>
               </div>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {requests.map((r) => (
                   <ServiceRequestCard key={r.id} request={r} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Orçamentos aguardando aprovação do cliente */}
-          {pendingBudgets.length > 0 && (
-            <section>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Aguardando sua resposta ({pendingBudgets.length})
-              </h2>
-              <div className="space-y-3">
-                {pendingBudgets.map((b) => (
-                  <BudgetCard key={b.id} budget={b} />
                 ))}
               </div>
             </section>
@@ -94,7 +95,7 @@ export function BudgetsPage() {
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Histórico
               </h2>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {otherBudgets.map((b) => (
                   <BudgetCard key={b.id} budget={b} />
                 ))}

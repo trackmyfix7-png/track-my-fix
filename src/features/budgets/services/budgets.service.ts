@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import type { Budget } from '@/types/database'
 
-const BUDGET_SELECT_LIST   = '*, vehicle:vehicles(*), items:budget_items(*), service_request:service_requests(problem_description, category, service_id, service:services(name, description, estimated_time, base_price))'
-const BUDGET_SELECT_DETAIL = '*, vehicle:vehicles(*), items:budget_items(*), service_request:service_requests(problem_description, category, service_id, service:services!service_id(name, description, estimated_time, base_price), images:service_request_images!request_id(id, storage_path))'
+const BUDGET_SELECT_LIST   = '*, vehicle:vehicles(*), workshop:workshops(name), items:budget_items(*), service_request:service_requests(problem_description, category, service_id, service:services(name, description, estimated_time, base_price))'
+const BUDGET_SELECT_DETAIL = '*, vehicle:vehicles(*), workshop:workshops(name, phone), items:budget_items(*), service_request:service_requests(problem_description, category, service_id, service:services!service_id(name, description, estimated_time, base_price), images:service_request_images!request_id(id, storage_path))'
 
 async function attachImageUrls(budget: Budget): Promise<Budget> {
   const imgs = budget.service_request?.images

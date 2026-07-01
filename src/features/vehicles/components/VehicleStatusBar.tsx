@@ -1,13 +1,12 @@
 import { cn } from '@/lib/utils'
 import type { ServiceOrderStatus } from '@/types/database'
 
-// Etapas visíveis ao cliente — awaiting_approval fica entre diagnóstico e em serviço
 const STEPS: { label: string; statuses: ServiceOrderStatus[] }[] = [
-  { label: 'Recebido',    statuses: ['received']          },
-  { label: 'Diagnóstico', statuses: ['diagnosis', 'awaiting_approval'] },
-  { label: 'Em serviço',  statuses: ['in_progress']       },
-  { label: 'Pronto',      statuses: ['ready']              },
-  { label: 'Entregue',    statuses: ['delivered']          },
+  { label: 'Recebido',    statuses: ['received']                        },
+  { label: 'Diagnóstico', statuses: ['diagnosis', 'awaiting_approval']  },
+  { label: 'Em serviço',  statuses: ['in_progress']                     },
+  { label: 'Pronto',      statuses: ['ready']                           },
+  { label: 'Entregue',    statuses: ['delivered']                       },
 ]
 
 function getStepIndex(status: ServiceOrderStatus): number {
@@ -16,17 +15,16 @@ function getStepIndex(status: ServiceOrderStatus): number {
 
 interface VehicleStatusBarProps {
   status: ServiceOrderStatus
+  inverted?: boolean
 }
 
-export function VehicleStatusBar({ status }: VehicleStatusBarProps) {
+export function VehicleStatusBar({ status, inverted = false }: VehicleStatusBarProps) {
   const currentIndex = getStepIndex(status)
   const progress     = currentIndex / (STEPS.length - 1)
 
   return (
     <div className="relative pt-1">
-      {/* Trilha de fundo */}
-      <div className="absolute top-[11px] left-[16px] right-[16px] h-0.5 bg-border" />
-      {/* Trilha de progresso */}
+      <div className={cn('absolute top-[11px] left-[16px] right-[16px] h-0.5', inverted ? 'bg-white/20' : 'bg-border')} />
       <div
         className="absolute top-[11px] left-[16px] h-0.5 bg-brand-accent transition-all duration-700"
         style={{ width: `calc(${progress * 100}% * ((100% - 32px) / 100%))` }}
@@ -45,8 +43,12 @@ export function VehicleStatusBar({ status }: VehicleStatusBarProps) {
                   isCompleted
                     ? 'bg-brand-accent border-brand-accent'
                     : isCurrent
-                      ? 'bg-white border-brand-accent shadow-sm shadow-brand-accent/40'
-                      : 'bg-white border-border'
+                      ? inverted
+                        ? 'bg-brand-primary border-brand-accent shadow-sm shadow-brand-accent/40'
+                        : 'bg-white border-brand-accent shadow-sm shadow-brand-accent/40'
+                      : inverted
+                        ? 'bg-white/10 border-white/25'
+                        : 'bg-white border-border'
                 )}
               >
                 {isCompleted ? (
@@ -59,9 +61,11 @@ export function VehicleStatusBar({ status }: VehicleStatusBarProps) {
               </div>
               <span className={cn(
                 'text-[10px] font-medium text-center leading-tight whitespace-nowrap',
-                isCurrent   ? 'text-brand-accent font-semibold'  :
-                isCompleted ? 'text-foreground/70'                :
-                              'text-muted-foreground'
+                isCurrent
+                  ? 'text-brand-accent font-semibold'
+                  : isCompleted
+                    ? inverted ? 'text-white/60' : 'text-foreground/70'
+                    : inverted ? 'text-white/40' : 'text-muted-foreground'
               )}>
                 {step.label}
               </span>

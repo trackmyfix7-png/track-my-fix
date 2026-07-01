@@ -270,7 +270,6 @@ export async function createBudget(payload: CreateBudgetPayload): Promise<string
     category:    i.category,
     quantity:    i.quantity,
     unit_price:  i.unitPrice,
-    total_price: i.quantity * i.unitPrice,
   }))
   const { error: itemsError } = await supabase.from('budget_items').insert(items)
   if (itemsError) throw itemsError
