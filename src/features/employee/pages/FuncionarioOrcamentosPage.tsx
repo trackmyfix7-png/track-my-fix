@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   Plus, Trash2, MessageSquare, FileText, Clock,
-  AlertCircle, Info, X, Car,
+  AlertCircle, Info, X,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,10 +25,11 @@ import {
   useEmployeeBudgets,
   useMyDraftBudgets,
   useCreateEmployeeBudget,
+  useCreateEmployeeBudgets,
   type EmployeeBudgetItem,
+  type MyDraftBudget,
 } from '../hooks/useEmployee'
 import type { PendingRequest } from '@/features/admin/orcamentos/services/admin-budgets.service'
-import type { MyDraftBudget } from '../hooks/useEmployee'
 
 type Tab = 'solicitacoes' | 'revisao' | 'enviados'
 
@@ -40,7 +41,7 @@ interface DraftItem {
   unitPrice:   number
 }
 
-// ─── Modal leitura: detalhes (para quem não tem permissão de criar) ───────────
+// ─── Modal leitura (sem permissão de criar) ───────────────────────────────────
 
 function ServiceRequestViewModal({ request, onClose }: {
   request: PendingRequest
@@ -68,7 +69,7 @@ function ServiceRequestViewModal({ request, onClose }: {
           {request.vehicle && (
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Veículo</p>
-              <p className="text-sm font-medium text-foreground">{request.vehicle.brand} {request.vehicle.model} {request.vehicle.year}</p>
+              <p className="text-sm font-medium">{request.vehicle.brand} {request.vehicle.model} {request.vehicle.year}</p>
               <p className="text-xs text-muted-foreground font-mono">{request.vehicle.plate}</p>
             </div>
           )}
@@ -81,7 +82,7 @@ function ServiceRequestViewModal({ request, onClose }: {
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Problema relatado</p>
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
-              <p className="text-sm text-foreground leading-relaxed">{request.problem_description}</p>
+              <p className="text-sm leading-relaxed">{request.problem_description}</p>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -156,28 +157,24 @@ function RequestCard({ req, selected, canCreateBudget, onSelect }: {
 
 // ─── Painel lateral: criar orçamento ─────────────────────────────────────────
 
-function EmployeeBudgetPanel({ request, workshopId, onClose, onSuccess }: {
-  request:     PendingRequest
-  workshopId:  string
-  onClose:     () => void
-  onSuccess:   () => void
+function EmployeeBudgetPanel({ selectedRequests, workshopId, onDeselect, onClose, onSuccess }: {
+  selectedRequests: PendingRequest[]
+  workshopId:       string
+  onDeselect:       (id: string) => void
+  onClose:          () => void
+  onSuccess:        () => void
 }) {
   const [items,      setItems]      = useState<DraftItem[]>([])
   const [addingItem, setAddingItem] = useState(false)
   const [newItem,    setNewItem]    = useState<Partial<DraftItem>>({ category: 'part', quantity: 1 })
   const [notes,      setNotes]      = useState('')
 
-  const create    = useCreateEmployeeBudget()
-  const isPending = create.isPending
-  const total     = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
-
-  // Reset ao mudar de solicitação selecionada
-  useEffect(() => {
-    setItems([])
-    setAddingItem(false)
-    setNewItem({ category: 'part', quantity: 1 })
-    setNotes('')
-  }, [request.id])
+  const create      = useCreateEmployeeBudget()
+  const createBulk  = useCreateEmployeeBudgets()
+  const isPending   = create.isPending || createBulk.isPending
+  const isError     = create.isError   || createBulk.isError
+  const isBulk      = selectedRequests.length > 1
+  const total       = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
 
   function confirmAddItem() {
     if (!newItem.description || !newItem.unitPrice) return
@@ -196,38 +193,58 @@ function EmployeeBudgetPanel({ request, workshopId, onClose, onSuccess }: {
   }
 
   async function handleSubmit() {
-    if (items.length === 0 || !request.vehicle) return
-    await create.mutateAsync({
-      workshopId,
-      vehicleId:        request.vehicle.id,
-      serviceRequestId: request.id,
-      items: items.map((i): EmployeeBudgetItem => ({
-        description: i.description,
-        category:    i.category,
-        quantity:    i.quantity,
-        unit_price:  i.unitPrice,
-      })),
-      notes: notes || undefined,
-    })
+    if (items.length === 0) return
+    const budgetItems = items.map((i): EmployeeBudgetItem => ({
+      description: i.description,
+      category:    i.category,
+      quantity:    i.quantity,
+      unit_price:  i.unitPrice,
+    }))
+
+    if (isBulk) {
+      await createBulk.mutateAsync(
+        selectedRequests
+          .filter((r) => r.vehicle)
+          .map((r) => ({
+            workshopId,
+            vehicleId:        r.vehicle!.id,
+            serviceRequestId: r.id,
+            items:            budgetItems,
+            notes:            notes || undefined,
+          }))
+      )
+    } else {
+      const req = selectedRequests[0]
+      if (!req?.vehicle) return
+      await create.mutateAsync({
+        workshopId,
+        vehicleId:        req.vehicle.id,
+        serviceRequestId: req.id,
+        items:            budgetItems,
+        notes:            notes || undefined,
+      })
+    }
+
     onSuccess()
   }
 
   const categoryLabel = (c: 'part' | 'service') => c === 'part' ? 'Peça' : 'Serviço'
+  const title = isBulk
+    ? `Orçamento para ${selectedRequests.length} clientes`
+    : 'Criar orçamento'
 
   return (
     <Card className="flex flex-col h-full overflow-hidden shadow-md">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border flex-shrink-0 flex items-start gap-3">
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand-secondary/10">
-          <Car className="h-5 w-5 text-brand-secondary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-brand-primary leading-snug">
-            {request.owner?.full_name ?? 'Cliente'}
-          </p>
-          {request.vehicle && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {request.vehicle.brand} {request.vehicle.model} {request.vehicle.year} · {request.vehicle.plate}
+      <div className="px-5 py-4 border-b border-border flex-shrink-0 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-foreground">{title}</p>
+          {!isBulk && selectedRequests[0] && (
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+              {selectedRequests[0].owner?.full_name ?? 'Cliente'}
+              {selectedRequests[0].vehicle
+                ? ` · ${selectedRequests[0].vehicle.brand} ${selectedRequests[0].vehicle.model} ${selectedRequests[0].vehicle.year}`
+                : ''}
             </p>
           )}
         </div>
@@ -239,19 +256,49 @@ function EmployeeBudgetPanel({ request, workshopId, onClose, onSuccess }: {
         </button>
       </div>
 
-      {/* Problema relatado */}
-      <div className="px-5 pt-4 flex-shrink-0">
-        <div className="rounded-lg border border-brand-secondary/30 bg-brand-secondary/5 px-3 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Problema relatado</p>
-          <p className="text-xs text-foreground leading-relaxed">{request.problem_description}</p>
-          {request.category && (
-            <Badge variant="secondary" className="mt-1.5 text-[10px]">{request.category}</Badge>
-          )}
-        </div>
-      </div>
-
-      {/* Itens (scrollável) */}
+      {/* Conteúdo scrollável */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
+
+        {/* Problema relatado (1 request) */}
+        {!isBulk && selectedRequests[0] && (
+          <div className="rounded-lg border border-brand-secondary/30 bg-brand-secondary/5 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Problema relatado</p>
+            <p className="text-xs text-foreground leading-relaxed">{selectedRequests[0].problem_description}</p>
+            {selectedRequests[0].category && (
+              <Badge variant="secondary" className="mt-1.5 text-[10px]">{selectedRequests[0].category}</Badge>
+            )}
+          </div>
+        )}
+
+        {/* Lista de destinatários (bulk) */}
+        {isBulk && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Destinatários ({selectedRequests.length})</Label>
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+              {selectedRequests.map((r) => (
+                <div key={r.id} className="flex items-center gap-2 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium truncate">{r.owner?.full_name ?? 'Cliente'}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {r.vehicle ? `${r.vehicle.brand} ${r.vehicle.model} ${r.vehicle.year}` : '—'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => onDeselect(r.id)}
+                    className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              O mesmo orçamento será enviado individualmente para cada cliente.
+            </p>
+          </div>
+        )}
+
+        {/* Itens */}
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold">Itens do orçamento</Label>
           <div className="rounded-md border border-border overflow-hidden">
@@ -281,7 +328,6 @@ function EmployeeBudgetPanel({ request, workshopId, onClose, onSuccess }: {
                 </button>
               </div>
             ))}
-
             {addingItem && (
               <div className="border-t border-border p-2 space-y-2 bg-muted/30">
                 <Input
@@ -324,7 +370,6 @@ function EmployeeBudgetPanel({ request, workshopId, onClose, onSuccess }: {
               </div>
             )}
           </div>
-
           {!addingItem && (
             <Button
               variant="outline"
@@ -349,11 +394,13 @@ function EmployeeBudgetPanel({ request, workshopId, onClose, onSuccess }: {
         </div>
 
         <div className="flex items-center justify-between rounded-lg bg-brand-primary/5 px-3 py-2.5 border border-brand-primary/10">
-          <span className="text-sm font-semibold text-brand-primary">Total</span>
+          <span className="text-sm font-semibold text-brand-primary">
+            {isBulk ? 'Total por cliente' : 'Total'}
+          </span>
           <span className="text-lg font-bold text-brand-primary">{formatCurrency(total)}</span>
         </div>
 
-        {create.isError && (
+        {isError && (
           <p className="text-xs text-destructive">Erro ao criar orçamento. Tente novamente.</p>
         )}
       </div>
@@ -367,10 +414,14 @@ function EmployeeBudgetPanel({ request, workshopId, onClose, onSuccess }: {
           variant="accent"
           size="sm"
           className="flex-1"
-          disabled={items.length === 0 || isPending || !request.vehicle}
+          disabled={items.length === 0 || isPending || selectedRequests.every((r) => !r.vehicle)}
           onClick={handleSubmit}
         >
-          {isPending ? 'Salvando...' : 'Enviar ao cliente'}
+          {isPending
+            ? 'Salvando...'
+            : isBulk
+              ? `Enviar ${selectedRequests.length} orçamentos`
+              : 'Enviar ao cliente'}
         </Button>
       </div>
     </Card>
@@ -427,35 +478,45 @@ function DraftCard({ draft }: { draft: MyDraftBudget }) {
 
 export function FuncionarioOrcamentosPage() {
   const [activeTab,        setActiveTab]        = useState<Tab>('solicitacoes')
-  const [selectedRequest,  setSelectedRequest]  = useState<PendingRequest | null>(null)
-  // Mantém último request visível durante a animação de fechar
-  const [lastRequest,      setLastRequest]      = useState<PendingRequest | null>(null)
+  const [selectedRequests, setSelectedRequests] = useState<PendingRequest[]>([])
+  const [formKey,          setFormKey]          = useState(0)
+  // Mantém conteúdo visível durante a animação de fechar
+  const [lastSelected,     setLastSelected]     = useState<PendingRequest[]>([])
 
-  const { data: ctx,      isLoading: ctxLoading }   = useEmployeeContext()
+  const { data: ctx,      isLoading: ctxLoading }      = useEmployeeContext()
   const { data: requests = [], isLoading: loadingReqs }   = useEmployeeServiceRequests()
   const { data: budgets  = [], isLoading: loadingBudgets } = useEmployeeBudgets()
   const { data: drafts   = [], isLoading: loadingDrafts }  = useMyDraftBudgets()
 
   const canCreateBudget = ctx?.canApproveBudgets ?? false
   const workshopId      = ctx?.workshop?.id ?? ''
-
-  const panelOpen = !!selectedRequest && canCreateBudget
+  const panelOpen       = selectedRequests.length > 0 && canCreateBudget
 
   function handleSelect(req: PendingRequest) {
-    if (selectedRequest?.id === req.id) {
-      setSelectedRequest(null)
-    } else {
-      setSelectedRequest(req)
-      setLastRequest(req)
-    }
+    setSelectedRequests((prev) => {
+      const next = prev.some((r) => r.id === req.id)
+        ? prev.filter((r) => r.id !== req.id)
+        : [...prev, req]
+      if (next.length > 0) setLastSelected(next)
+      return next
+    })
   }
 
-  function handlePanelClose() {
-    setSelectedRequest(null)
+  function handleDeselect(id: string) {
+    setSelectedRequests((prev) => {
+      const next = prev.filter((r) => r.id !== id)
+      if (next.length > 0) setLastSelected(next)
+      return next
+    })
+  }
+
+  function handleClosePanel() {
+    setSelectedRequests([])
   }
 
   function handleSuccess() {
-    setSelectedRequest(null)
+    setSelectedRequests([])
+    setFormKey((k) => k + 1)
   }
 
   const newCount   = requests.filter((r) => r.status === 'pending').length
@@ -473,10 +534,8 @@ export function FuncionarioOrcamentosPage() {
 
   const validTab = tabs.some((t) => t.key === activeTab) ? activeTab : 'solicitacoes'
 
-  const pageHeight = 'calc(100dvh - 104px)'
-
   return (
-    <div className="flex flex-col gap-4" style={{ height: pageHeight }}>
+    <div className="flex flex-col gap-4" style={{ height: 'calc(100dvh - 104px)' }}>
       <PageHeader title="Orçamentos" description="Solicitações dos clientes" />
 
       {/* Tabs */}
@@ -484,7 +543,7 @@ export function FuncionarioOrcamentosPage() {
         {tabs.map(({ key, label, icon: Icon, badge }) => (
           <button
             key={key}
-            onClick={() => { setActiveTab(key); setSelectedRequest(null) }}
+            onClick={() => { setActiveTab(key); handleClosePanel() }}
             className={cn(
               '-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
               validTab === key
@@ -513,11 +572,22 @@ export function FuncionarioOrcamentosPage() {
               <EmptyState title="Nenhuma solicitação pendente" className="py-14" />
             ) : (
               <div className="space-y-2 pr-1">
+                {selectedRequests.length > 0 && (
+                  <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-xs">
+                    <span className="text-muted-foreground">
+                      {selectedRequests.length} solicitaç{selectedRequests.length > 1 ? 'ões' : 'ão'} selecionada{selectedRequests.length > 1 ? 's' : ''}
+                      {selectedRequests.length > 1 && ' — mesmo orçamento para cada'}
+                    </span>
+                    <button className="font-medium text-brand-secondary hover:underline" onClick={handleClosePanel}>
+                      Limpar seleção
+                    </button>
+                  </div>
+                )}
                 {requests.map((req) => (
                   <RequestCard
                     key={req.id}
                     req={req}
-                    selected={selectedRequest?.id === req.id}
+                    selected={selectedRequests.some((r) => r.id === req.id)}
                     canCreateBudget={canCreateBudget}
                     onSelect={() => handleSelect(req)}
                   />
@@ -526,7 +596,7 @@ export function FuncionarioOrcamentosPage() {
             )}
           </div>
 
-          {/* Painel lateral (anima entrada/saída) */}
+          {/* Painel lateral */}
           <div className={cn(
             'flex-shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out',
             panelOpen ? 'w-[400px] opacity-100' : 'w-0 opacity-0 pointer-events-none'
@@ -535,15 +605,14 @@ export function FuncionarioOrcamentosPage() {
               'w-[400px] h-full transition-transform duration-300 ease-out',
               panelOpen ? 'translate-x-0' : 'translate-x-6'
             )}>
-              {(selectedRequest ?? lastRequest) && (
-                <EmployeeBudgetPanel
-                  key={(selectedRequest ?? lastRequest)!.id}
-                  request={(selectedRequest ?? lastRequest)!}
-                  workshopId={workshopId}
-                  onClose={handlePanelClose}
-                  onSuccess={handleSuccess}
-                />
-              )}
+              <EmployeeBudgetPanel
+                key={formKey}
+                selectedRequests={panelOpen ? selectedRequests : lastSelected}
+                workshopId={workshopId}
+                onDeselect={handleDeselect}
+                onClose={handleClosePanel}
+                onSuccess={handleSuccess}
+              />
             </div>
           </div>
         </div>

@@ -142,6 +142,19 @@ export function useCreateEmployeeBudget() {
   })
 }
 
+export function useCreateEmployeeBudgets() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payloads: CreateEmployeeBudgetPayload[]) =>
+      Promise.all(payloads.map(createEmployeeBudget)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', 'service-requests'] })
+      queryClient.invalidateQueries({ queryKey: ['employee', 'my-drafts'] })
+      queryClient.invalidateQueries({ queryKey: ['employee', 'budgets'] })
+    },
+  })
+}
+
 // ─── Ordens da oficina ────────────────────────────────────────────────────────
 
 export function useEmployeeOrders() {

@@ -3,7 +3,7 @@ import { Plus, Trash2, MessageSquare, FileText, X, Clock, Send, CornerDownLeft, 
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,38 +27,35 @@ import {
   useReturnDraft,
 } from '../hooks/useAdminBudgets'
 import { useWorkshopClients } from '@/features/admin/veiculos/hooks/useAdminVehicles'
-import type { PendingRequest, DraftBudgetRow } from '../services/admin-budgets.service'
+import type { PendingRequest } from '../services/admin-budgets.service'
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
 interface DraftItem {
-  id: string
+  id:          string
   description: string
-  category: 'part' | 'service'
-  quantity: number
-  unitPrice: number
+  category:    'part' | 'service'
+  quantity:    number
+  unitPrice:   number
 }
-
-// ─── Abas ─────────────────────────────────────────────────────────────────────
 
 type Tab = 'solicitacoes' | 'enviados'
 
 // ─── Request card ─────────────────────────────────────────────────────────────
 
 function RequestCard({ req, selected, onSelect }: {
-  req: PendingRequest
+  req:      PendingRequest
   selected: boolean
   onSelect: () => void
 }) {
-  const isNew = req.status === 'pending'
   return (
     <button
       onClick={onSelect}
       className={cn(
-        'w-full text-left rounded-lg border p-3 transition-colors',
+        'w-full text-left rounded-xl border p-3.5 transition-all duration-150',
         selected
-          ? 'border-brand-secondary bg-brand-secondary/5'
-          : 'border-border bg-white hover:border-brand-secondary/50'
+          ? 'border-brand-secondary bg-brand-secondary/5 shadow-sm'
+          : 'border-border bg-white hover:border-brand-secondary/50 hover:bg-muted/20'
       )}
     >
       <div className="flex items-start gap-3">
@@ -70,9 +67,10 @@ function RequestCard({ req, selected, onSelect }: {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-foreground">{req.owner?.full_name ?? 'Cliente'}</span>
-            {isNew && <Badge variant="accent" className="h-4 px-1.5 text-[10px]">Nova</Badge>}
+            {req.status === 'pending'   && <Badge variant="accent"    className="h-4 px-1.5 text-[10px]">Nova</Badge>}
+            {req.status === 'analyzing' && <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">Em análise</Badge>}
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 mt-0.5">
             <p className="text-xs text-brand-secondary font-medium">
               {req.vehicle ? `${req.vehicle.brand} ${req.vehicle.model} ${req.vehicle.year}` : '—'}
             </p>
@@ -80,48 +78,34 @@ function RequestCard({ req, selected, onSelect }: {
               <Badge variant="muted" className="h-4 px-1.5 text-[10px]">{req.category}</Badge>
             )}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-            {req.problem_description}
-          </p>
-        </div>
-        <div
-          className={cn(
-            'mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border',
-            selected ? 'border-brand-secondary bg-brand-secondary' : 'border-border'
-          )}
-        >
-          {selected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{req.problem_description}</p>
         </div>
       </div>
     </button>
   )
 }
 
-// ─── Painel de criação de orçamento ──────────────────────────────────────────
+// ─── Painel lateral: criar orçamento ─────────────────────────────────────────
 
-function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
+function CreateBudgetPanel({ selectedRequests, onDeselect, onClose, onSuccess }: {
   selectedRequests: PendingRequest[]
-  onDeselect: (id: string) => void
-  onSuccess: () => void
+  onDeselect:       (id: string) => void
+  onClose:          () => void
+  onSuccess:        () => void
 }) {
   const { data: allClients = [] } = useWorkshopClients()
   const createBudget  = useCreateBudget()
   const createBudgets = useCreateBudgets()
 
   const requestCount = selectedRequests.length
-  const isBulk        = requestCount > 1
-  const isPending     = createBudget.isPending || createBudgets.isPending
-  const isError        = createBudget.isError || createBudgets.isError
+  const isBulk       = requestCount > 1
+  const isPending    = createBudget.isPending || createBudgets.isPending
+  const isError      = createBudget.isError   || createBudgets.isError
 
-  // Cliente + veículo (só usado quando não há solicitação selecionada)
-  const [selectedClientId,  setSelectedClientId]  = useState<string>('')
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('')
+  const [selectedClientId,  setSelectedClientId]  = useState('')
+  const [selectedVehicleId, setSelectedVehicleId] = useState('')
+  const { data: vehicles = [], isLoading: loadingVehicles } = useClientVehicles(selectedClientId || null)
 
-  const { data: vehicles = [], isLoading: loadingVehicles } = useClientVehicles(
-    selectedClientId || null
-  )
-
-  // Itens do orçamento
   const [items,      setItems]      = useState<DraftItem[]>([])
   const [addingItem, setAddingItem] = useState(false)
   const [newItem,    setNewItem]    = useState<Partial<DraftItem>>({ category: 'part', quantity: 1 })
@@ -132,10 +116,6 @@ function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
   function handleClientChange(clientId: string) {
     setSelectedClientId(clientId)
     setSelectedVehicleId('')
-  }
-
-  function removeItem(id: string) {
-    setItems((prev) => prev.filter((i) => i.id !== id))
   }
 
   function confirmAddItem() {
@@ -181,42 +161,63 @@ function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
       })
     }
 
-    // Reset form
-    setSelectedClientId('')
-    setSelectedVehicleId('')
-    setItems([])
-    setNotes('')
     onSuccess()
   }
 
-  const categoryLabel = (c: 'part' | 'service') => (c === 'part' ? 'Peça' : 'Serviço')
+  const categoryLabel = (c: 'part' | 'service') => c === 'part' ? 'Peça' : 'Serviço'
+
+  const title = isBulk
+    ? `Orçamento para ${requestCount} clientes`
+    : requestCount === 1
+      ? 'Criar orçamento'
+      : 'Novo orçamento'
 
   return (
-    <Card className="h-fit sticky top-4">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">
-          {isBulk ? `Criar orçamento (${requestCount} clientes)` : 'Criar novo orçamento'}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Card className="flex flex-col h-full overflow-hidden shadow-md">
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-border flex-shrink-0 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-foreground">{title}</p>
+          {requestCount === 1 && (
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+              {selectedRequests[0].owner?.full_name ?? 'Cliente'}
+              {selectedRequests[0].vehicle
+                ? ` · ${selectedRequests[0].vehicle.brand} ${selectedRequests[0].vehicle.model} ${selectedRequests[0].vehicle.year}`
+                : ''}
+            </p>
+          )}
+          {requestCount === 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5">Sem solicitação vinculada</p>
+          )}
+        </div>
+        <button
+          onClick={onClose}
+          className="flex-shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
 
-        {/* Destinatários: 1 solicitação vinculada */}
+      {/* Conteúdo scrollável */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
+
+        {/* Solicitação vinculada (1 request) */}
         {requestCount === 1 && (
-          <div className="rounded-lg border border-brand-secondary/30 bg-brand-secondary/5 px-3 py-2">
-            <p className="text-xs font-medium text-brand-secondary mb-0.5">Solicitação vinculada</p>
-            <p className="text-xs text-foreground line-clamp-2">{selectedRequests[0].problem_description}</p>
+          <div className="rounded-lg border border-brand-secondary/30 bg-brand-secondary/5 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Problema relatado</p>
+            <p className="text-xs text-foreground leading-relaxed line-clamp-3">{selectedRequests[0].problem_description}</p>
           </div>
         )}
 
-        {/* Destinatários: várias solicitações */}
+        {/* Múltiplos destinatários */}
         {isBulk && (
           <div className="space-y-1.5">
-            <Label>Destinatários ({requestCount})</Label>
+            <Label className="text-xs font-semibold">Destinatários ({requestCount})</Label>
             <div className="max-h-40 overflow-y-auto rounded-lg border border-border divide-y divide-border">
               {selectedRequests.map((r) => (
                 <div key={r.id} className="flex items-center gap-2 px-3 py-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-foreground truncate">{r.owner?.full_name ?? 'Cliente'}</p>
+                    <p className="text-xs font-medium truncate">{r.owner?.full_name ?? 'Cliente'}</p>
                     <p className="text-[10px] text-muted-foreground truncate">
                       {r.vehicle ? `${r.vehicle.brand} ${r.vehicle.model} ${r.vehicle.year}` : '—'}
                     </p>
@@ -231,64 +232,62 @@ function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
               ))}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              O mesmo orçamento (itens e valores abaixo) será enviado individualmente para cada cliente.
+              O mesmo orçamento será enviado individualmente para cada cliente.
             </p>
           </div>
         )}
 
-        {/* Cliente (só quando nenhuma solicitação está selecionada) */}
+        {/* Cliente + Veículo (manual, sem request) */}
         {requestCount === 0 && (
-          <div className="space-y-1.5">
-            <Label>Cliente</Label>
-            <Select value={selectedClientId} onValueChange={handleClientChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecionar cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                {allClients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {/* Veículo */}
-        {requestCount === 0 && (
-          <div className="space-y-1.5">
-            <Label>Veículo</Label>
-            <Select
-              value={selectedVehicleId}
-              onValueChange={setSelectedVehicleId}
-              disabled={!selectedClientId || loadingVehicles}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={loadingVehicles ? 'Carregando...' : 'Selecionar veículo'} />
-              </SelectTrigger>
-              <SelectContent>
-                {vehicles.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.brand} {v.model} {v.year} · {v.plate}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {requestCount === 1 && (
           <>
             <div className="space-y-1.5">
-              <Label>Cliente</Label>
+              <Label className="text-xs font-semibold">Cliente</Label>
+              <Select value={selectedClientId} onValueChange={handleClientChange}>
+                <SelectTrigger><SelectValue placeholder="Selecionar cliente" /></SelectTrigger>
+                <SelectContent>
+                  {allClients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Veículo</Label>
+              <Select
+                value={selectedVehicleId}
+                onValueChange={setSelectedVehicleId}
+                disabled={!selectedClientId || loadingVehicles}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingVehicles ? 'Carregando...' : 'Selecionar veículo'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicles.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.brand} {v.model} {v.year} · {v.plate}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
+
+        {/* Cliente + Veículo (1 request — read-only) */}
+        {requestCount === 1 && (
+          <>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Cliente</Label>
               <div className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
                 {selectedRequests[0].owner?.full_name ?? 'Cliente'}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Veículo</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Veículo</Label>
               <div className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
-                {selectedRequests[0].vehicle.brand} {selectedRequests[0].vehicle.model}{' '}
-                {selectedRequests[0].vehicle.year} · {selectedRequests[0].vehicle.plate}
+                {selectedRequests[0].vehicle
+                  ? `${selectedRequests[0].vehicle.brand} ${selectedRequests[0].vehicle.model} ${selectedRequests[0].vehicle.year} · ${selectedRequests[0].vehicle.plate}`
+                  : '—'}
               </div>
             </div>
           </>
@@ -296,46 +295,34 @@ function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
 
         {/* Itens */}
         <div className="space-y-1.5">
-          <Label>Itens</Label>
+          <Label className="text-xs font-semibold">Itens do orçamento</Label>
           <div className="rounded-md border border-border overflow-hidden">
             {items.length === 0 && !addingItem && (
-              <p className="px-3 py-4 text-xs text-center text-muted-foreground">
-                Nenhum item adicionado
-              </p>
+              <p className="px-3 py-4 text-xs text-center text-muted-foreground">Nenhum item adicionado</p>
             )}
             {items.map((item, idx) => (
               <div
                 key={item.id}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2',
-                  idx < items.length - 1 ? 'border-b border-border' : ''
-                )}
+                className={cn('flex items-center gap-2 px-3 py-2', idx < items.length - 1 && 'border-b border-border')}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground truncate">{item.description}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {item.quantity}x {formatCurrency(item.unitPrice)}
-                  </p>
+                  <p className="text-xs font-medium truncate">{item.description}</p>
+                  <p className="text-[10px] text-muted-foreground">{item.quantity}x {formatCurrency(item.unitPrice)}</p>
                 </div>
-                <Badge
-                  variant={item.category === 'part' ? 'secondary' : 'muted'}
-                  className="flex-shrink-0 text-[10px]"
-                >
+                <Badge variant={item.category === 'part' ? 'secondary' : 'muted'} className="flex-shrink-0 text-[10px]">
                   {categoryLabel(item.category)}
                 </Badge>
-                <span className="text-xs font-semibold text-foreground w-16 text-right flex-shrink-0">
+                <span className="text-xs font-semibold w-16 text-right flex-shrink-0">
                   {formatCurrency(item.quantity * item.unitPrice)}
                 </span>
                 <button
-                  onClick={() => removeItem(item.id)}
+                  onClick={() => setItems((p) => p.filter((i) => i.id !== item.id))}
                   className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
             ))}
-
-            {/* Inline add form */}
             {addingItem && (
               <div className="border-t border-border p-2 space-y-2 bg-muted/30">
                 <Input
@@ -343,15 +330,14 @@ function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
                   className="h-7 text-xs"
                   value={newItem.description ?? ''}
                   onChange={(e) => setNewItem((p) => ({ ...p, description: e.target.value }))}
+                  autoFocus
                 />
                 <div className="flex gap-2">
                   <Select
                     value={newItem.category}
                     onValueChange={(v) => setNewItem((p) => ({ ...p, category: v as 'part' | 'service' }))}
                   >
-                    <SelectTrigger className="h-7 text-xs flex-1">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="part">Peça</SelectItem>
                       <SelectItem value="service">Serviço</SelectItem>
@@ -376,22 +362,12 @@ function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
                   />
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" className="h-7 text-xs flex-1" onClick={confirmAddItem}>
-                    Adicionar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => setAddingItem(false)}
-                  >
-                    Cancelar
-                  </Button>
+                  <Button size="sm" className="h-7 text-xs flex-1" onClick={confirmAddItem}>Adicionar</Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAddingItem(false)}>Cancelar</Button>
                 </div>
               </div>
             )}
           </div>
-
           {!addingItem && (
             <Button
               variant="outline"
@@ -407,7 +383,7 @@ function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
 
         {/* Observações */}
         <div className="space-y-1.5">
-          <Label>Observações (opcional)</Label>
+          <Label className="text-xs font-semibold">Observações (opcional)</Label>
           <Textarea
             placeholder="Prazo estimado, condições, detalhes..."
             rows={2}
@@ -419,7 +395,7 @@ function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
         {/* Total */}
         <div className="flex items-center justify-between rounded-lg bg-brand-primary/5 px-3 py-2.5 border border-brand-primary/10">
           <span className="text-sm font-semibold text-brand-primary">
-            {isBulk ? `Total por cliente` : 'Total'}
+            {isBulk ? 'Total por cliente' : 'Total'}
           </span>
           <span className="text-lg font-bold text-brand-primary">{formatCurrency(total)}</span>
         </div>
@@ -427,11 +403,22 @@ function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
         {isError && (
           <p className="text-xs text-destructive">Erro ao enviar orçamento. Tente novamente.</p>
         )}
+      </div>
 
+      {/* Footer */}
+      <div className="flex gap-2 border-t border-border px-5 py-3 flex-shrink-0 bg-muted/20">
+        <Button variant="outline" size="sm" className="flex-1" onClick={onClose} disabled={isPending}>
+          Cancelar
+        </Button>
         <Button
-          className="w-full"
           variant="accent"
-          disabled={(requestCount === 0 && !selectedVehicleId) || items.length === 0 || isPending}
+          size="sm"
+          className="flex-1"
+          disabled={
+            (requestCount === 0 && !selectedVehicleId) ||
+            items.length === 0 ||
+            isPending
+          }
           onClick={handleSubmit}
         >
           {isPending
@@ -440,7 +427,7 @@ function CreateBudgetPanel({ selectedRequests, onDeselect, onSuccess }: {
               ? `Enviar ${requestCount} orçamentos`
               : 'Enviar orçamento'}
         </Button>
-      </CardContent>
+      </div>
     </Card>
   )
 }
@@ -462,9 +449,7 @@ function ReturnDraftModal({ budgetId, onClose }: { budgetId: string; onClose: ()
       <DialogContent className="max-w-sm p-0 gap-0 overflow-hidden">
         <div className="border-b border-border px-6 py-5">
           <DialogTitle className="text-base">Devolver ao funcionário</DialogTitle>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            O funcionário verá esta nota na aba "Em revisão".
-          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">O funcionário verá esta nota na aba "Em revisão".</p>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div className="space-y-1.5">
@@ -516,7 +501,7 @@ function DraftSection() {
         <h3 className="text-sm font-semibold text-foreground">
           Aguardando revisão ({drafts.length})
         </h3>
-        <span className="text-xs text-muted-foreground">— rascunhos preparados por funcionários</span>
+        <span className="text-xs text-muted-foreground">— rascunhos de funcionários</span>
       </div>
 
       {drafts.map((draft) => (
@@ -524,11 +509,8 @@ function DraftSection() {
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1 space-y-1.5">
-                {/* Cabeçalho */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-xs font-semibold text-brand-secondary">
-                    #{draft.budget_number}
-                  </span>
+                  <span className="font-mono text-xs font-semibold text-brand-secondary">#{draft.budget_number}</span>
                   {draft.creator && (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <HardHat className="h-3 w-3" />
@@ -540,12 +522,8 @@ function DraftSection() {
                     {format(parseISO(draft.issued_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
                   </span>
                 </div>
-
-                {/* Cliente + veículo */}
                 <div className="text-sm">
-                  {draft.owner && (
-                    <span className="font-medium text-foreground">{draft.owner.full_name}</span>
-                  )}
+                  {draft.owner && <span className="font-medium text-foreground">{draft.owner.full_name}</span>}
                   {draft.vehicle && (
                     <span className="text-muted-foreground">
                       {' · '}{draft.vehicle.brand} {draft.vehicle.model} {draft.vehicle.year}
@@ -553,37 +531,22 @@ function DraftSection() {
                     </span>
                   )}
                 </div>
-
-                {/* Problema */}
                 {draft.service_request && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {draft.service_request.problem_description}
-                  </p>
+                  <p className="text-xs text-muted-foreground line-clamp-2">{draft.service_request.problem_description}</p>
                 )}
-
-                {/* Itens resumo */}
                 <div className="flex flex-wrap gap-1.5">
                   {draft.items.slice(0, 3).map((item, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center rounded-full bg-white border border-border px-2 py-0.5 text-[10px] text-muted-foreground"
-                    >
+                    <span key={i} className="inline-flex items-center rounded-full bg-white border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
                       {item.description} · {formatCurrency(item.total_price)}
                     </span>
                   ))}
                   {draft.items.length > 3 && (
-                    <span className="text-[10px] text-muted-foreground self-center">
-                      +{draft.items.length - 3} item(s)
-                    </span>
+                    <span className="text-[10px] text-muted-foreground self-center">+{draft.items.length - 3} item(s)</span>
                   )}
                 </div>
               </div>
-
-              {/* Total + ações */}
               <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                <p className="text-base font-bold text-brand-primary">
-                  {formatCurrency(draft.total_amount)}
-                </p>
+                <p className="text-base font-bold text-brand-primary">{formatCurrency(draft.total_amount)}</p>
                 <div className="flex gap-1.5">
                   <Button
                     size="sm"
@@ -600,12 +563,7 @@ function DraftSection() {
                     variant="accent"
                     className="h-7 gap-1 text-xs"
                     disabled={publishDraft.isPending}
-                    onClick={() =>
-                      publishDraft.mutate({
-                        budgetId:         draft.id,
-                        serviceRequestId: draft.service_request_id,
-                      })
-                    }
+                    onClick={() => publishDraft.mutate({ budgetId: draft.id, serviceRequestId: draft.service_request_id })}
                   >
                     <Send className="h-3 w-3" />
                     Enviar ao cliente
@@ -617,9 +575,7 @@ function DraftSection() {
         </Card>
       ))}
 
-      {returning && (
-        <ReturnDraftModal budgetId={returning} onClose={() => setReturning(null)} />
-      )}
+      {returning && <ReturnDraftModal budgetId={returning} onClose={() => setReturning(null)} />}
     </div>
   )
 }
@@ -630,48 +586,83 @@ export function AdminOrcamentosPage() {
   const [activeTab,        setActiveTab]        = useState<Tab>('solicitacoes')
   const [selectedRequests, setSelectedRequests] = useState<PendingRequest[]>([])
   const [formKey,          setFormKey]          = useState(0)
+  // Controla abertura manual do painel (sem request selecionado)
+  const [manualPanel,      setManualPanel]      = useState(false)
+  // Mantém conteúdo visível durante animação de fechar
+  const [lastSelected,     setLastSelected]     = useState<PendingRequest[]>([])
+  const [wasManual,        setWasManual]        = useState(false)
 
-  const { data: requests = [], isLoading: loadingReqs  } = usePendingServiceRequests()
+  const { data: requests = [], isLoading: loadingReqs   } = usePendingServiceRequests()
   const { data: budgets  = [], isLoading: loadingBudgets } = useWorkshopBudgets()
 
-  const newCount = requests.filter((r) => r.status === 'pending').length
+  const newCount  = requests.filter((r) => r.status === 'pending').length
+  const panelOpen = selectedRequests.length > 0 || manualPanel
 
   function handleRequestSelect(req: PendingRequest) {
-    setSelectedRequests((prev) =>
-      prev.some((r) => r.id === req.id)
+    setSelectedRequests((prev) => {
+      const next = prev.some((r) => r.id === req.id)
         ? prev.filter((r) => r.id !== req.id)
         : [...prev, req]
-    )
+      if (next.length > 0) setLastSelected(next)
+      return next
+    })
+    setManualPanel(false)
+    setWasManual(false)
   }
 
   function handleDeselect(id: string) {
-    setSelectedRequests((prev) => prev.filter((r) => r.id !== id))
+    setSelectedRequests((prev) => {
+      const next = prev.filter((r) => r.id !== id)
+      if (next.length > 0) setLastSelected(next)
+      return next
+    })
+  }
+
+  function handleOpenManual() {
+    setSelectedRequests([])
+    setManualPanel(true)
+    setWasManual(true)
+    setLastSelected([])
+  }
+
+  function handleClosePanel() {
+    setSelectedRequests([])
+    setManualPanel(false)
   }
 
   function handleBudgetSent() {
     setSelectedRequests([])
+    setManualPanel(false)
     setFormKey((k) => k + 1)
     setActiveTab('enviados')
   }
 
+  const pageHeight = 'calc(100dvh - 104px)'
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4" style={{ height: pageHeight }}>
       <PageHeader
         title="Orçamentos"
         description="Solicitações dos clientes e criação de orçamentos"
+        actions={
+          <Button variant="accent" size="sm" className="gap-1.5" onClick={handleOpenManual}>
+            <Plus className="h-4 w-4" />
+            Novo orçamento
+          </Button>
+        }
       />
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 border-b border-border flex-shrink-0">
         {([
-          { key: 'solicitacoes', label: 'Solicitações', icon: MessageSquare, badge: newCount as number | undefined },
-          { key: 'enviados',     label: 'Orçamentos enviados', icon: FileText, badge: undefined as number | undefined },
+          { key: 'solicitacoes' as Tab, label: 'Solicitações',      icon: MessageSquare, badge: newCount },
+          { key: 'enviados'     as Tab, label: 'Orçamentos enviados', icon: FileText,      badge: undefined as number | undefined },
         ] as const).map(({ key, label, icon: Icon, badge }) => (
           <button
             key={key}
-            onClick={() => setActiveTab(key)}
+            onClick={() => { setActiveTab(key); handleClosePanel() }}
             className={cn(
-              'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+              '-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
               activeTab === key
                 ? 'border-brand-secondary text-brand-secondary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -686,10 +677,12 @@ export function AdminOrcamentosPage() {
         ))}
       </div>
 
+      {/* Solicitações */}
       {activeTab === 'solicitacoes' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          {/* Solicitações */}
-          <div className="lg:col-span-3 space-y-6">
+        <div className="flex gap-5 flex-1 min-h-0">
+
+          {/* Lista */}
+          <div className="flex-1 min-w-0 overflow-y-auto space-y-6 pr-1">
             <DraftSection />
 
             <div className="space-y-3">
@@ -697,115 +690,116 @@ export function AdminOrcamentosPage() {
                 <MessageSquare className="h-4 w-4 text-muted-foreground" />
                 <h3 className="text-sm font-semibold text-foreground">Solicitações dos clientes</h3>
                 {newCount > 0 && (
-                  <Badge variant="accent" className="h-4 px-1.5 text-[10px]">{newCount} nova{newCount > 1 ? 's' : ''}</Badge>
+                  <Badge variant="accent" className="h-4 px-1.5 text-[10px]">
+                    {newCount} nova{newCount > 1 ? 's' : ''}
+                  </Badge>
                 )}
               </div>
 
-            {selectedRequests.length > 0 && (
-              <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-xs">
-                <span className="text-muted-foreground">
-                  {selectedRequests.length} solicitaç{selectedRequests.length > 1 ? 'ões' : 'ão'} selecionada{selectedRequests.length > 1 ? 's' : ''} — mesmo orçamento será enviado para cada uma
-                </span>
-                <button
-                  className="font-medium text-brand-secondary hover:underline"
-                  onClick={() => setSelectedRequests([])}
-                >
-                  Limpar seleção
-                </button>
-              </div>
-            )}
-            {loadingReqs ? (
-              <LoadingState />
-            ) : requests.length === 0 ? (
-              <EmptyState title="Nenhuma solicitação pendente" className="py-10" />
-            ) : (
-              requests.map((req) => (
-                <RequestCard
-                  key={req.id}
-                  req={req}
-                  selected={selectedRequests.some((r) => r.id === req.id)}
-                  onSelect={() => handleRequestSelect(req)}
-                />
-              ))
-            )}
-            </div>{/* /space-y-3 */}
-          </div>{/* /lg:col-span-3 */}
+              {selectedRequests.length > 0 && (
+                <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-xs">
+                  <span className="text-muted-foreground">
+                    {selectedRequests.length} solicitaç{selectedRequests.length > 1 ? 'ões' : 'ão'} selecionada{selectedRequests.length > 1 ? 's' : ''}
+                    {selectedRequests.length > 1 && ' — mesmo orçamento para cada'}
+                  </span>
+                  <button className="font-medium text-brand-secondary hover:underline" onClick={() => setSelectedRequests([])}>
+                    Limpar seleção
+                  </button>
+                </div>
+              )}
 
-          {/* Formulário */}
-          <div className="lg:col-span-2">
-            <CreateBudgetPanel
-              key={formKey}
-              selectedRequests={selectedRequests}
-              onDeselect={handleDeselect}
-              onSuccess={handleBudgetSent}
-            />
+              {loadingReqs ? (
+                <LoadingState />
+              ) : requests.length === 0 ? (
+                <EmptyState title="Nenhuma solicitação pendente" className="py-10" />
+              ) : (
+                <div className="space-y-2">
+                  {requests.map((req) => (
+                    <RequestCard
+                      key={req.id}
+                      req={req}
+                      selected={selectedRequests.some((r) => r.id === req.id)}
+                      onSelect={() => handleRequestSelect(req)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Painel lateral */}
+          <div className={cn(
+            'flex-shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out',
+            panelOpen ? 'w-[380px] opacity-100' : 'w-0 opacity-0 pointer-events-none'
+          )}>
+            <div className={cn(
+              'w-[380px] h-full transition-transform duration-300 ease-out',
+              panelOpen ? 'translate-x-0' : 'translate-x-6'
+            )}>
+              <CreateBudgetPanel
+                key={formKey}
+                selectedRequests={panelOpen ? selectedRequests : lastSelected}
+                onDeselect={handleDeselect}
+                onClose={handleClosePanel}
+                onSuccess={handleBudgetSent}
+              />
+            </div>
           </div>
         </div>
       )}
 
+      {/* Enviados */}
       {activeTab === 'enviados' && (
-        <Card>
-          <CardContent className="p-0">
-            {loadingBudgets ? (
-              <LoadingState />
-            ) : budgets.length === 0 ? (
-              <EmptyState title="Nenhum orçamento enviado ainda" className="py-10" />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50">
-                      {['Nº', 'Veículo', 'Cliente', 'Total', 'Data', 'Status'].map((h) => (
-                        <th
-                          key={h}
-                          className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground last:text-right"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {budgets.map((b) => (
-                      <tr
-                        key={b.id}
-                        className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
-                      >
-                        <td className="px-5 py-3">
-                          <span className="font-mono text-xs font-semibold text-brand-secondary">
-                            #{b.budget_number}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-sm">
-                          <div className="flex items-center gap-1.5">
-                            {b.vehicle.brand} {b.vehicle.model} {b.vehicle.year}
-                            {b.service_request?.category && (
-                              <Badge variant="muted" className="h-4 px-1.5 text-[10px]">
-                                {b.service_request.category}
-                              </Badge>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 text-sm text-muted-foreground">
-                          {b.owner?.full_name ?? '—'}
-                        </td>
-                        <td className="px-5 py-3 text-sm font-semibold">
-                          {formatCurrency(b.total_amount)}
-                        </td>
-                        <td className="px-5 py-3 text-sm text-muted-foreground">
-                          {format(parseISO(b.issued_at), 'dd/MM/yyyy', { locale: ptBR })}
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <BudgetStatusBadge status={b.status} />
-                        </td>
+        <div className="flex-1 overflow-y-auto">
+          <Card>
+            <CardContent className="p-0">
+              {loadingBudgets ? (
+                <LoadingState />
+              ) : budgets.length === 0 ? (
+                <EmptyState title="Nenhum orçamento enviado ainda" className="py-10" />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/50">
+                        {['Nº', 'Veículo', 'Cliente', 'Total', 'Data', 'Status'].map((h) => (
+                          <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground last:text-right">
+                            {h}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </thead>
+                    <tbody>
+                      {budgets.map((b) => (
+                        <tr key={b.id} className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
+                          <td className="px-5 py-3">
+                            <span className="font-mono text-xs font-semibold text-brand-secondary">#{b.budget_number}</span>
+                          </td>
+                          <td className="px-5 py-3 text-sm">
+                            <div className="flex items-center gap-1.5">
+                              {b.vehicle.brand} {b.vehicle.model} {b.vehicle.year}
+                              {b.service_request?.category && (
+                                <Badge variant="muted" className="h-4 px-1.5 text-[10px]">{b.service_request.category}</Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-sm text-muted-foreground">{b.owner?.full_name ?? '—'}</td>
+                          <td className="px-5 py-3 text-sm font-semibold">{formatCurrency(b.total_amount)}</td>
+                          <td className="px-5 py-3 text-sm text-muted-foreground">
+                            {format(parseISO(b.issued_at), 'dd/MM/yyyy', { locale: ptBR })}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <BudgetStatusBadge status={b.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   )
